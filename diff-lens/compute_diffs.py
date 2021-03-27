@@ -26,9 +26,7 @@ def pretty(d, indent=2):
 # Provided with a starting dict, an absolute path of a file, and a relative path of the same file,
 # compute the BLAKE3 hash. Then save it to the dict with the key as the hash in hexadecimal form
 # and the value as a list of relative paths sharing the same hash. Finally, return the updated dict.
-# enableMultithreading is True by default because we assume files being hashed are >1MB and therefore
-# most efficiently hashed in a multi-threaded manner.
-def update_full_hash_dict(dict_to_update, absolute_path, relative_path, enable_multithreading=True):
+def update_full_hash_dict(dict_to_update, absolute_path, relative_path, enable_multithreading):
     # Open the file in read-only, binary format
     # https://stackabuse.com/file-handling-in-python/
     with open(absolute_path, "rb") as f:
@@ -51,7 +49,8 @@ def update_full_hash_dict(dict_to_update, absolute_path, relative_path, enable_m
 # full hash OR a list of the files sharing the same partial hash that ALSO is under the hash threshold
 # NOTE: the split structure between the files needing further hash and the small files is in hopes of
 # reducing memory footprint
-def update_partial_dict(dict_to_update, absolute_path, relative_path, file_size_bytes, byte_count_to_hash=1000000):
+def update_partial_dict(dict_to_update, absolute_path, relative_path, file_size_bytes, byte_count_to_hash,
+                        enable_multithreading, enable_full_hash):
     # Open the file in read-only, binary format
     # https://stackabuse.com/file-handling-in-python/
     with open(absolute_path, "rb") as f:
@@ -70,17 +69,28 @@ def update_partial_dict(dict_to_update, absolute_path, relative_path, file_size_
             # Instead of making another nested dict with a repeated hash, just store the list at this level
             dict_to_update = add_or_update_dict_list(dict_to_update, dict_key, relative_path)
         else:
-            # If false, continue by hashing the full file
-            if dict_key not in dict_to_update:
-                dict_to_update[dict_key] = update_full_hash_dict({}, absolute_path, relative_path)
+            # If we plan to diff on more than just the hash of the first N bytes of the file, proceed
+            if enable_full_hash:
+                # If false, continue by hashing the full file
+                if dict_key not in dict_to_update:
+                    dict_to_update[dict_key] = update_full_hash_dict({}, absolute_path, relative_path,
+                                                                     enable_multithreading)
+                else:
+                    dict_to_update[dict_key] = update_full_hash_dict(dict_to_update[dict_key], absolute_path,
+                                                                     relative_path,
+                                                                     enable_multithreading)
             else:
-                dict_to_update[dict_key] = update_full_hash_dict(dict_to_update[dict_key], absolute_path, relative_path)
+                # Otherwise finish processing this file by adding its partial hash and name to the dict
+                dict_to_update = add_or_update_dict_list(dict_to_update, hex_hash_string, relative_path)
 
     # Return the updated dict to the caller
     return dict_to_update
 
 
-def compute_diffs(input_path):
+# enableMultithreading is True by default because we assume files being hashed are >1MB and therefore
+# most efficiently hashed in a multi-threaded manner.
+def compute_diffs(input_path, byte_count_to_hash=1000000, enable_multithreading=True, enable_partial_hash=True,
+                  enable_full_hash=True):
     # Input directory, which we'll modify to be an absolute path without a trailing slash (how Python wants it)
     path_to_process = input_path
 
@@ -133,28 +143,35 @@ def compute_diffs(input_path):
             # Get the size of the file, in Bytes
             # https://stackoverflow.com/questions/6591931/getting-file-size-in-python
             file_size_bytes = path.getsize(absolute_file_path)
-            # Check if the fileBytesDict already contains an entry for the current file's size
-            if file_size_bytes not in file_duplicates_dict:
-                # If no entry existed, create a new dict as a value and populate it using a helper
-                file_duplicates_dict[file_size_bytes] = update_partial_dict({}, absolute_file_path, input_file_path,
-                                                                            file_size_bytes)
+            # If we plan to diff on more than just the number of bytes in the file, proceed
+            if enable_partial_hash:
+                # Check if the fileBytesDict already contains an entry for the current file's size
+                if file_size_bytes not in file_duplicates_dict:
+                    # If no entry existed, create a new dict as a value and populate it using a helper
+                    file_duplicates_dict[file_size_bytes] = update_partial_dict({}, absolute_file_path, input_file_path,
+                                                                                file_size_bytes, byte_count_to_hash,
+                                                                                enable_multithreading, enable_full_hash)
+                else:
+                    # An entry already existed as the value, so pass it to the helper
+                    file_duplicates_dict[file_size_bytes] = update_partial_dict(file_duplicates_dict[file_size_bytes],
+                                                                                absolute_file_path, input_file_path,
+                                                                                file_size_bytes, byte_count_to_hash,
+                                                                                enable_multithreading, enable_full_hash)
             else:
-                # An entry already existed as the value, so pass it to the helper
-                file_duplicates_dict[file_size_bytes] = update_partial_dict(file_duplicates_dict[file_size_bytes],
-                                                                            absolute_file_path, input_file_path,
-                                                                            file_size_bytes)
+                # Otherwise finish processing this file by adding its bytes to the dict
+                file_duplicates_dict = add_or_update_dict_list(file_duplicates_dict, file_size_bytes,
+                                                               input_file_path)
 
     # We've exited the for loop for the current dir_path, onto the next one
-    # Print out the struct we created
-    pretty(file_duplicates_dict)
     # Return the dict to the caller
     return file_duplicates_dict
 
 
-# TODO get this all wrapped into function where all customizations given as input args. then return the assembled dict
 # TODO a separate file will handle writing the dict in the proper format into a file
 # TODO a separate file will handle diffing one file with another to determine changes.
 #  It'll have different modes for presence/absence (reverse the inputs!), hash comparison, etc
 
 if __name__ == '__main__':
-    compute_diffs("../../../../TestDir/innerDir/")
+    output = compute_diffs("../../../../TestDir/innerDir/")
+    # Print out the struct we created
+    pretty(output)

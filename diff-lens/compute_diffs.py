@@ -3,6 +3,39 @@ from os import path, sep, walk, getcwd
 from blake3 import blake3
 
 
+def sanitize_and_validate_directory_path(path_to_process):
+    # Check if the input is a relative or absolute path
+    # https://automatetheboringstuff.com/chapter8/
+    if path.isabs(path_to_process):
+        print("Input path was absolute, not modifying")
+    else:
+        # Check if the input was not just relative, but also needed user expansion
+        # https://stackoverflow.com/questions/2057045/pythons-os-makedirs-doesnt-understand-in-my-path
+        # https://www.geeksforgeeks.org/python-os-path-expanduser-method/
+        if path_to_process.startswith("~"):
+            print("Input path contained a tilde, performing user expansion")
+            path_to_process = path.expanduser(path_to_process)
+        else:
+            print("Input path was relative, converting it to absolute path")
+            path_to_process = path.abspath(path_to_process)
+    print("Proceeding processing with path {} from current working directory {}".format(path_to_process, getcwd()))
+
+    # Now that we have an absolute path, confirm it points to a directory and not a file
+    if not path.isdir(path_to_process):
+        print("Input wasn't a directory, exiting")
+        exit(1)
+    else:
+        print("Input confirmed to be a valid directory")
+
+    # Clear the path of a trailing slash if one exists, to standardize with walk() subdirectories
+    if path_to_process[-1] == sep:
+        print("Last character of directory is a slash, removing it")
+        path_to_process = path_to_process[:-1]
+    else:
+        print("Input path correctly ended without a trailing slash")
+    return path_to_process
+
+
 # Helper to handle creating or updating a list stored in a dict
 def add_or_update_dict_list(dict_to_update, dict_key, string_to_store):
     if dict_key not in dict_to_update:
@@ -92,37 +125,7 @@ def update_partial_dict(dict_to_update, absolute_path, relative_path, file_size_
 def compute_diffs(input_path, byte_count_to_hash=1000000, enable_multithreading=True, enable_partial_hash=True,
                   enable_full_hash=True):
     # Input directory, which we'll modify to be an absolute path without a trailing slash (how Python wants it)
-    path_to_process = input_path
-
-    # Check if the input is a relative or absolute path
-    # https://automatetheboringstuff.com/chapter8/
-    if path.isabs(path_to_process):
-        print("Input path was absolute, not modifying")
-    else:
-        # Check if the input was not just relative, but also needed user expansion
-        # https://stackoverflow.com/questions/2057045/pythons-os-makedirs-doesnt-understand-in-my-path
-        # https://www.geeksforgeeks.org/python-os-path-expanduser-method/
-        if path_to_process.startswith("~"):
-            print("Input path contained a tilde, performing user expansion")
-            path_to_process = path.expanduser(path_to_process)
-        else:
-            print("Input path was relative, converting it to absolute path")
-            path_to_process = path.abspath(path_to_process)
-    print("Proceeding processing with path {} from current working directory {}".format(path_to_process, getcwd()))
-
-    # Now that we have an absolute path, confirm it points to a directory and not a file
-    if not path.isdir(path_to_process):
-        print("Input wasn't a directory, exiting")
-        exit(1)
-    else:
-        print("Input confirmed to be a valid directory")
-
-    # Clear the path of a trailing slash if one exists, to standardize with walk() subdirectories
-    if path_to_process[-1] == sep:
-        print("Last character of directory is a slash, removing it")
-        path_to_process = path_to_process[:-1]
-    else:
-        print("Input path correctly ended without a trailing slash")
+    path_to_process = sanitize_and_validate_directory_path(input_path)
 
     # Create the top-level dict in which we'll store duplicates. Dict keys at this level are file sizes in bytes
     file_duplicates_dict = {}
@@ -167,7 +170,6 @@ def compute_diffs(input_path, byte_count_to_hash=1000000, enable_multithreading=
     return file_duplicates_dict
 
 
-# TODO a separate file will handle writing the dict in the proper format into a file
 # TODO a separate file will handle diffing one file with another to determine changes.
 #  It'll have different modes for presence/absence (reverse the inputs!), hash comparison, etc
 

@@ -1,134 +1,160 @@
-import os
+from os import path, sep, walk, getcwd
 
 from blake3 import blake3
 
 
+# Helper to handle creating or updating a list stored in a dict
+def add_or_update_dict_list(dict_to_update, dict_key, string_to_store):
+    if dict_key not in dict_to_update:
+        dict_to_update[dict_key] = [string_to_store]
+    else:
+        dict_to_update[dict_key].append(string_to_store)
+    return dict_to_update
+
+
+# Helper that can pretty print a nested dict
 # https://stackoverflow.com/questions/3229419/how-to-pretty-print-nested-dictionaries
 def pretty(d, indent=2):
     for key, value in d.items():
         print(' ' * indent + str(key))
         if isinstance(value, dict):
-            pretty(value, indent + 1)
+            pretty(value, indent * 2)
         else:
             print(' ' * (indent + 1) + str(value))
 
 
-def updateFullHashDict(dict, absolutePath, relativePath):
-    with open(absolutePath, "rb") as f:
-        # Modify with read(500000) to read the first 500k bytes
-        # Confirmed that the read() input matches the units of os.path.getsize()
-        # As suggested in https://github.com/oconnor663/blake3-py enable multiThreading if file >=1MB
-        # TODO make multithreading an input param or flag
-        hash = blake3(f.read(), multithreading=True).hexdigest()
+# Provided with a starting dict, an absolute path of a file, and a relative path of the same file,
+# compute the BLAKE3 hash. Then save it to the dict with the key as the hash in hexadecimal form
+# and the value as a list of relative paths sharing the same hash. Finally, return the updated dict.
+# enableMultithreading is True by default because we assume files being hashed are >1MB and therefore
+# most efficiently hashed in a multi-threaded manner.
+def update_full_hash_dict(dict_to_update, absolute_path, relative_path, enable_multithreading=True):
+    # Open the file in read-only, binary format
+    # https://stackabuse.com/file-handling-in-python/
+    with open(absolute_path, "rb") as f:
+        # Get the hexadecimal 64-character representation of the hash
+        # https://github.com/oconnor663/blake3-py
+        hex_hash_string = blake3(f.read(), multithreading=enable_multithreading).hexdigest()
 
-        # TODO add a blocker noting whether or not there are more bytes in the file
-        if hash not in dict:
-            dict[hash] = [relativePath]
+        # Save the hash and RELATIVE path to the dict, creating a new list if one didn't exist before
+        dict_to_update = add_or_update_dict_list(dict_to_update, hex_hash_string, relative_path)
+
+    # Return the updated dict to the caller
+    return dict_to_update
+
+
+# Provided with a starting dict, an absolute path of a file, a relative path of the same file,
+# the size of the input file in bytes, and the amount of bytes to read, read the first N bytes
+# from the file to compute the BLAKE3 hash of those bytes. Then determine if the entire file was
+# read, or if more remains. Save the result to the dict, where the key is a Tuple of the partial hash
+# and whether or not the file was fully hashed, and the value is either a nested dict of the
+# full hash OR a list of the files sharing the same partial hash that ALSO is under the hash threshold
+# NOTE: the split structure between the files needing further hash and the small files is in hopes of
+# reducing memory footprint
+def update_partial_dict(dict_to_update, absolute_path, relative_path, file_size_bytes, byte_count_to_hash=1000000):
+    # Open the file in read-only, binary format
+    # https://stackabuse.com/file-handling-in-python/
+    with open(absolute_path, "rb") as f:
+        # Get the hexadecimal 64-character representation of the first N bytes of the file
+        # https://github.com/oconnor663/blake3-py
+        # NOTE: If a file is 100 bytes, f.read(100) will read the entire file.
+        hex_hash_string = blake3(f.read(byte_count_to_hash)).hexdigest()
+
+        # Boolean on whether or not the file was smaller than the read buffer. This tells us if we fully read the file
+        file_fully_hashed = file_size_bytes <= byte_count_to_hash
+        # Make the dictKey a tuple indicating the hash value, but also whether or not we fully read the file
+        dict_key = (hex_hash_string, file_fully_hashed)
+
+        if file_fully_hashed:
+            # If the file was fully hashed, we don't need additional hashing since we already covered the full file.
+            # Instead of making another nested dict with a repeated hash, just store the list at this level
+            dict_to_update = add_or_update_dict_list(dict_to_update, dict_key, relative_path)
         else:
-            dict[hash].append(relativePath)
-
-    return dict
-
-
-def updatePartialDict(dict, absolutePath, relativePath, fileSizeBytes):
-    with open(absolutePath, "rb") as f:
-        # TODO make the partial hash cutoff an input param or a flag
-        hashByteCount = 1000000
-        # Modify with read(500000) to read the first 500k bytes
-        # Confirmed that the read() input matches the units of os.path.getsize()
-        hash = blake3(f.read(hashByteCount)).hexdigest()
-
-        # Make the dictKey a tuple indicating the hash value, but also a Boolean on whether or not the file was smaller than the read buffer.
-        # If true, we don't need additional hashing since we already covered the full file. If false, continue hashing
-        fileFullyHashed = fileSizeBytes <= hashByteCount
-        dictKey = (hash, fileFullyHashed)
-
-        if not fileFullyHashed:
-            # TODO add a blocker noting whether or not there are more bytes in the file
-            if dictKey not in dict:
-                dict[dictKey] = updateFullHashDict({}, absolutePath, relativePath)
+            # If false, continue by hashing the full file
+            if dict_key not in dict_to_update:
+                dict_to_update[dict_key] = update_full_hash_dict({}, absolute_path, relative_path)
             else:
-                dict[dictKey] = updateFullHashDict(dict[dictKey], absolutePath, relativePath)
-        else:
-            if dictKey not in dict:
-                dict[dictKey] = [relativePath]
-            else:
-                dict[dictKey].append(relativePath)
+                dict_to_update[dict_key] = update_full_hash_dict(dict_to_update[dict_key], absolute_path, relative_path)
 
-    return dict
+    # Return the updated dict to the caller
+    return dict_to_update
 
 
-def processBegin():
-    # raw argument
-    inputPath = "../../../../TestDir/innerDir/"
-    # input directory, with or without trailing slash, may be absolute or relative
-    pathToProcess = inputPath
+def compute_diffs(input_path):
+    # Input directory, which we'll modify to be an absolute path without a trailing slash (how Python wants it)
+    path_to_process = input_path
 
     # Check if the input is a relative or absolute path
     # https://automatetheboringstuff.com/chapter8/
-    if os.path.isabs(pathToProcess):
+    if path.isabs(path_to_process):
         print("Input path was absolute, not modifying")
     else:
-        if pathToProcess.startswith("~"):
+        # Check if the input was not just relative, but also needed user expansion
+        # https://stackoverflow.com/questions/2057045/pythons-os-makedirs-doesnt-understand-in-my-path
+        # https://www.geeksforgeeks.org/python-os-path-expanduser-method/
+        if path_to_process.startswith("~"):
             print("Input path contained a tilde, performing user expansion")
-            pathToProcess = os.path.expanduser(pathToProcess)
+            path_to_process = path.expanduser(path_to_process)
         else:
             print("Input path was relative, converting it to absolute path")
-            pathToProcess = os.path.abspath(pathToProcess)
-    print("Proceeding processing with path {} from current working directory {}".format(pathToProcess, os.getcwd()))
+            path_to_process = path.abspath(path_to_process)
+    print("Proceeding processing with path {} from current working directory {}".format(path_to_process, getcwd()))
 
-    # top-level dict. Key is file bytes. Value is another dict
-    fileBytesDict = {}
-
-    # must be a directory.
-    # TODO: may not work with relative paths
-    if not os.path.isdir(pathToProcess):
+    # Now that we have an absolute path, confirm it points to a directory and not a file
+    if not path.isdir(path_to_process):
         print("Input wasn't a directory, exiting")
         exit(1)
     else:
         print("Input confirmed to be a valid directory")
 
-    # get last character and remove trailing slash if necessary to standardize with os.walk() subdirectories
-    if pathToProcess[-1] == os.sep:
+    # Clear the path of a trailing slash if one exists, to standardize with walk() subdirectories
+    if path_to_process[-1] == sep:
         print("Last character of directory is a slash, removing it")
-        pathToProcess = pathToProcess[:-1]
+        path_to_process = path_to_process[:-1]
     else:
         print("Input path correctly ended without a trailing slash")
 
+    # Create the top-level dict in which we'll store duplicates. Dict keys at this level are file sizes in bytes
+    file_duplicates_dict = {}
+
     # https://stackoverflow.com/questions/53123867/renaming-folders-and-files-while-os-walking-them-missed-some-files-after-chang
-    # Process top-down. If we wanted bottom up, we could add topdown=False to the os.walk() arguments
-    # dirpath will update to the directory we're currently scanning.
-    # dirs is a list of subdirectories in the current dirpath
-    # files is a list of file names in the current dirpath
-    for dirpath, dirs, files in os.walk(pathToProcess):
-        # iterate through files that are immediate children in the current dirpath
+    # Process top-down. If we wanted bottom up, we could add topdown=False to the walk() arguments
+    # dir_path will update to the directory we're currently scanning.
+    # dirs is a list of subdirectories in the current dir_path
+    # files is a list of file names in the current dir_path
+    for dir_path, dirs, files in walk(path_to_process):
+
+        # Iterate through files that are immediate children in the current dir_path
         for file in files:
-            # construct the absolute path that we'll need to access the file
-            absoluteFilePath = os.path.join(dirpath, file)
-            # Construct the relative path based on user input that we'll end up storing
-            inputFilePath = os.path.join(inputPath, file)
-            # get the size of the file, in Bytes
+            # Construct the absolute path that we'll need to access the file
+            absolute_file_path = path.join(dir_path, file)
+            # Construct the relative path based on user input that we'll end up storing in the dict
+            input_file_path = path.join(input_path, file)
+            # Get the size of the file, in Bytes
             # https://stackoverflow.com/questions/6591931/getting-file-size-in-python
-            fileSizeBytes = os.path.getsize(absoluteFilePath)
+            file_size_bytes = path.getsize(absolute_file_path)
             # Check if the fileBytesDict already contains an entry for the current file's size
-            if fileSizeBytes not in fileBytesDict:
-                # If no entry existed, create a new list containing our filename
-                fileBytesDict[fileSizeBytes] = updatePartialDict({}, absoluteFilePath, inputFilePath, fileSizeBytes)
-
+            if file_size_bytes not in file_duplicates_dict:
+                # If no entry existed, create a new dict as a value and populate it using a helper
+                file_duplicates_dict[file_size_bytes] = update_partial_dict({}, absolute_file_path, input_file_path,
+                                                                            file_size_bytes)
             else:
-                # An entry already existed, so add this new filePath to the list
-                fileBytesDict[fileSizeBytes] = updatePartialDict(fileBytesDict[fileSizeBytes], absoluteFilePath,
-                                                                 inputFilePath,
-                                                                 fileSizeBytes)
+                # An entry already existed as the value, so pass it to the helper
+                file_duplicates_dict[file_size_bytes] = update_partial_dict(file_duplicates_dict[file_size_bytes],
+                                                                            absolute_file_path, input_file_path,
+                                                                            file_size_bytes)
 
-        # We've exited the for loop for the current dirpath, onto the next one
+    # We've exited the for loop for the current dir_path, onto the next one
+    # Print out the struct we created
+    pretty(file_duplicates_dict)
+    # Return the dict to the caller
+    return file_duplicates_dict
 
-    pretty(fileBytesDict)
 
-
-# TODO get this all wrapped into a function where all customizations are given as input args. then return the assembled dict
+# TODO get this all wrapped into function where all customizations given as input args. then return the assembled dict
 # TODO a separate file will handle writing the dict in the proper format into a file
-# TODO a separate file will handle diffing one file with another to determine changes. It'll have different modes for presence/absence (reverse the inputs!), hash comparison, etc
+# TODO a separate file will handle diffing one file with another to determine changes.
+#  It'll have different modes for presence/absence (reverse the inputs!), hash comparison, etc
 
 if __name__ == '__main__':
-    processBegin()
+    compute_diffs("../../../../TestDir/innerDir/")

@@ -1,19 +1,59 @@
 import os
 from blake3 import blake3
 
+# https://stackoverflow.com/questions/3229419/how-to-pretty-print-nested-dictionaries
+def pretty(d, indent=0):
+   for key, value in d.items():
+      print('\t' * indent + str(key))
+      if isinstance(value, dict):
+         pretty(value, indent+1)
+      else:
+         print('\t' * (indent+1) + str(value))
 
-def update1MDict(dict, filePath):
+def updateFullHashDict(dict, filePath):
     with open(filePath, "rb") as f:
         # Modify with read(500000) to read the first 500k bytes
+        # Confirmed that the read() input matches the units of os.path.getsize()
         hash = blake3(f.read()).hexdigest()
+
+        # TODO add a blocker noting whether or not there are more bytes in the file
         if hash not in dict:
-            dict[hash]=[]
-        dict[hash].append(filePath)
+            dict[hash] = [filePath]
+        else:
+            dict[hash].append(filePath)
+
+    return dict
+
+
+def updatePartialDict(dict, filePath, fileSizeBytes):
+    with open(filePath, "rb") as f:
+        hashByteCount=1000000
+        # Modify with read(500000) to read the first 500k bytes
+        # Confirmed that the read() input matches the units of os.path.getsize()
+        hash = blake3(f.read(hashByteCount)).hexdigest()
+
+        # Make the dictKey a tuple indicating the hash value, but also a Boolean on whether or not the file was smaller than the read buffer.
+        # If true, we don't need additional hashing since we already covered the full file. If false, continue hashing
+        fileFullyHashed=fileSizeBytes<=hashByteCount
+        dictKey = (hash, fileFullyHashed)
+
+        if not fileFullyHashed:
+            # TODO add a blocker noting whether or not there are more bytes in the file
+            if dictKey not in dict:
+                dict[dictKey]=updateFullHashDict({}, filePath)
+            else:
+                dict[dictKey]=updateFullHashDict(dict[dictKey], filePath)
+        else:
+            if dictKey not in dict:
+                dict[dictKey] = [filePath]
+            else:
+                dict[dictKey].append(filePath)
+
     return dict
 
 def processBegin():
     # input directory, with or without trailing slash
-    inputDirectory = "/absolute/path"
+    inputDirectory = "/Users/kz/My Games"
 
     # top-level dict. Key is file bytes. Value is another dict
     fileBytesDict={}
@@ -45,16 +85,16 @@ def processBegin():
             # Check if the fileBytesDict already contains an entry for the current file's size
             if fileSizeBytes not in fileBytesDict:
                 # If no entry existed, create a new list containing our filename
-                fileBytesDict[fileSizeBytes]=update1MDict({},absoluteFilePath)
+                fileBytesDict[fileSizeBytes]=updatePartialDict({}, absoluteFilePath, fileSizeBytes)
 
             else:
                 # An entry already existed, so add this new filePath to the list
-                fileBytesDict[fileSizeBytes]=update1MDict(fileBytesDict[fileSizeBytes], absoluteFilePath)
+                fileBytesDict[fileSizeBytes]=updatePartialDict(fileBytesDict[fileSizeBytes], absoluteFilePath, fileSizeBytes)
 
         # We've exited the for loop for the current dirpath, onto the next one
 
 
-    print(fileBytesDict)
+    pretty(fileBytesDict)
 
 
 if __name__ == '__main__':

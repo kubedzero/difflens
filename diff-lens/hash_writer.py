@@ -44,7 +44,7 @@ def write_hashes_to_file(dict_input, output_path):
     # TODO is pandas really needed for this? Only if we do more advanced analysis I think
     data_frame = pandas.DataFrame(output_list, columns=["full_hash", "relative_path", "file_size_bytes"])
     # Get the sum of the number of bytes of all files we read
-    print(data_frame["file_size_bytes"].sum())
+    print("Total MB of files read: {}".format(data_frame["file_size_bytes"].sum() / 1000 / 1000))
 
     # https://thispointer.com/python-pandas-how-to-display-full-dataframe-i-e-print-all-rows-columns-without-truncation/
     pandas.set_option('display.max_rows', None)
@@ -61,5 +61,5 @@ def write_hashes_to_file(dict_input, output_path):
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
-    dict_to_write = compute_diffs("../../../../TestDir/innerDir/")
+    dict_to_write = compute_diffs("../../../../TestDir/")
     write_hashes_to_file(dict_to_write, "output.tsv.gz")

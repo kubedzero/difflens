@@ -132,7 +132,7 @@ def compute_diffs(input_path, byte_count_to_hash=1000000, enable_multithreading=
 
     # https://stackoverflow.com/questions/53123867/renaming-folders-and-files-while-os-walking-them-missed-some-files-after-chang
     # Process top-down. If we wanted bottom up, we could add topdown=False to the walk() arguments
-    # dir_path will update to the directory we're currently scanning.
+    # dir_path will update to the directory we're currently scanning. It is an absolute path
     # dirs is a list of subdirectories in the current dir_path
     # files is a list of file names in the current dir_path
     for dir_path, dirs, files in walk(path_to_process):
@@ -142,7 +142,8 @@ def compute_diffs(input_path, byte_count_to_hash=1000000, enable_multithreading=
             # Construct the absolute path that we'll need to access the file
             absolute_file_path = path.join(dir_path, file)
             # Construct the relative path based on user input that we'll end up storing in the dict
-            input_file_path = path.join(input_path, file)
+            # https://stackoverflow.com/questions/1192978/
+            input_file_path = path.relpath(absolute_file_path)
             # Get the size of the file, in Bytes
             # https://stackoverflow.com/questions/6591931/getting-file-size-in-python
             file_size_bytes = path.getsize(absolute_file_path)

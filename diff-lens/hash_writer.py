@@ -17,7 +17,7 @@ def print_memory():
 
 def write_hashes_to_file(dict_input, output_path):
     # Define a list which will contain the flattened rows to write
-    # Schema: full_hash::string, file_path::string, file_size_bytes::int
+    # Schema: file_path::string, full_hash::string, file_size_bytes::int
     # TODO add modified date, hashing date?
     output_list = []
 
@@ -29,20 +29,20 @@ def write_hashes_to_file(dict_input, output_path):
                     for level_two_key, level_two_value in level_one_value.items():
                         # we should only have 3 levels of dict. At this level, there should be a list as the value
                         for list_item in level_two_value:
-                            output_list.append([level_two_key, list_item, level_zero_key])
+                            output_list.append([list_item, level_two_key, level_zero_key])
                 else:
                     # If the value wasn't a dict, then it's a list of files
                     for list_item in level_one_value:
-                        output_list.append([level_one_key[0], list_item, level_zero_key])
+                        output_list.append([list_item, level_one_key[0], level_zero_key])
         else:
             # if the value wasn't a dict, then it's a list of files
             for list_item in level_zero_value:
-                output_list.append(["not_computed", list_item, level_zero_key])
+                output_list.append([list_item, "not_computed", level_zero_key])
 
     # Now that we have a flattened output_list, input it into a DataFrame
     # https://stackoverflow.com/questions/13784192/creating-an-empty-pandas-dataframe-then-filling-it
     # TODO is pandas really needed for this? Only if we do more advanced analysis I think
-    data_frame = pandas.DataFrame(output_list, columns=["full_hash", "relative_path", "file_size_bytes"])
+    data_frame = pandas.DataFrame(output_list, columns=["relative_path", "full_hash", "file_size_bytes"])
     # Get the sum of the number of bytes of all files we read
     print("Total MB of files read: {}".format(data_frame["file_size_bytes"].sum() / 1000 / 1000))
 
@@ -51,12 +51,21 @@ def write_hashes_to_file(dict_input, output_path):
     pandas.set_option('display.max_columns', None)
     pandas.set_option('display.width', None)
     pandas.set_option('display.max_colwidth', None)
-    # print(data_frame.merge(right=data_frame,left_on="full_hash", right_on="full_hash"))
+    # Print rows that share a hash with a separate row, indicating a duplicate exists
+    # https://stackoverflow.com/questions/48628417/
+    data_frame_value_counts = data_frame["full_hash"].value_counts()
+    # print(data_frame[data_frame["full_hash"].isin(data_frame_value_counts.index[data_frame_value_counts.gt(1)])])
+    # TODO printout saying X files scanned, Y groups of duplicates, Z duplicate files
 
     print_memory()
-    # TODO: alternatively, write it using JSON?
+    # TODO: alternatively, write it using JSON? CSV will be more easy to hand-edit I think
     # https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.to_csv.html
-    data_frame.to_csv(output_path, sep=",", quoting=QUOTE_NONNUMERIC, doublequote=False, escapechar="\\", index=False)
+    # Use tabs as separators
+    # double-quote around all non-numeric fields, just to keep things standardized
+    # Don't allow double-quotes inside fields without escaping
+    # Use a backslash \ character to escape separators or double quotes inside fields
+    # Don't prepend a field containing the row index
+    data_frame.to_csv(output_path, sep="\t", quoting=QUOTE_NONNUMERIC, doublequote=False, escapechar="\\", index=False)
 
 
 # Press the green button in the gutter to run the script.

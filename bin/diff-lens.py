@@ -1,1 +1,0 @@
-# This is the entry to the project, what a CLI user of python will call

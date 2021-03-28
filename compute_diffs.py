@@ -17,7 +17,7 @@ def log_current_progress(logger, start_time, current_time, bytes_read, files_see
     bytes_read_mb = bytes_read / 1000 / 1000
     processed_mb_per_second = bytes_read_mb / run_time
     processed_files_per_second = files_seen / run_time
-    logger.info("{:.1f} MB of data read from disk across {} directories & {} files in {:.2f} seconds at {:.1f}MBps, "
+    logger.info("{:.1f}MB of data read from disk across {} directories & {} files in {:.2f} seconds at {:.1f}MBps, "
                 "or {:.1f} files per second".format(bytes_read_mb, directories_seen, files_seen, run_time,
                                                     processed_mb_per_second, processed_files_per_second))
 
@@ -174,7 +174,7 @@ def compute_diffs(input_path, logger, byte_count_to_hash, disable_all_hashing, d
     if disable_all_hashing or disable_full_hashing:
         bytes_saved_mb = (bytes_total - bytes_read) / 1000 / 1000
         logger.info(
-            "By partially/fully disabling hashing, we skipped reading {:.1f}MB from disk".format(bytes_saved_mb))
+            "By partially/fully disabling hashing, diff-lens skipped reading {:.1f}MB from disk".format(bytes_saved_mb))
     # Return the dict to the caller
     return file_duplicates_dict
 

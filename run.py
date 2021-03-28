@@ -118,9 +118,9 @@ def main(args):
     if args.output_duplicates is not None:
         # Handle when all hashing is disabled and we can only diff on file size
         if args.disable_all_hashing:
-            duplicate_field="file_size_bytes"
+            duplicate_field = "file_size_bytes"
         else:
-            duplicate_field="hash"
+            duplicate_field = "hash"
         executor_logger.info("Finding duplicates in Current DataFrame based on {}".format(duplicate_field))
         duplicates_data_frame = determine_duplicate_files(current_data_frame, duplicate_field)
         # https://stackoverflow.com/questions/45759966

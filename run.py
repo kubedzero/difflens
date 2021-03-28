@@ -116,11 +116,16 @@ def main(args):
     executor_logger.info("Beginning analysis of Current DataFrame with {} rows".format(current_data_frame_rows))
     # The only analysis we can do on the current_data_frame alone is looking within for duplicates
     if args.output_duplicates is not None:
-        executor_logger.info("Finding duplicates in Current DataFrame based on file hash")
-        duplicates_data_frame = determine_duplicate_files(current_data_frame)
+        # Handle when all hashing is disabled and we can only diff on file size
+        if args.disable_all_hashing:
+            duplicate_field="file_size_bytes"
+        else:
+            duplicate_field="hash"
+        executor_logger.info("Finding duplicates in Current DataFrame based on {}".format(duplicate_field))
+        duplicates_data_frame = determine_duplicate_files(current_data_frame, duplicate_field)
         # https://stackoverflow.com/questions/45759966
         io_logger.info("Writing Duplicate DataFrame with {} rows across {} groups to disk at {}".format(
-            len(duplicates_data_frame.index), duplicates_data_frame["hash"].nunique(), args.output_duplicates))
+            len(duplicates_data_frame.index), duplicates_data_frame[duplicate_field].nunique(), args.output_duplicates))
         write_hashes_to_file(duplicates_data_frame, args.output_duplicates, io_logger,
                              disable_full_hashing=args.disable_full_hashing)
 

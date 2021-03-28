@@ -71,30 +71,25 @@ def main(args):
                                      disable_full_hashing=args.disable_full_hashing)
         executor_logger.info("Directory scan and file hash computation complete. Flattening output into DataFrame")
         current_data_frame = flatten_dict_to_data_frame(current_dict)
-
-        # Print out some statistics
+        # Print out stats on memory used
         print_memory(executor_logger)
-        # Get the sum of the number of bytes of all files we read
-        if not args.disable_all_hashing:
-            if not args.disable_full_hashing:
-                executor_logger.info(
-                    "Total MB of files read: {}".format(current_data_frame["file_size_bytes"].sum() / 1000 / 1000))
-            else:
-                executor_logger.info(
-                    "Partial hashes used. Maximum MB of files read: {}".format(
-                        len(current_data_frame.index) * byte_count_to_hash))
-        # TODO determine processing speed by taking MB/time during hashing, files/time for hashing, files/time for comparing
     else:
         # Otherwise, the hash file was provided in place of a scan directory. Read it in as a data_frame
         executor_logger.debug("Reading current_data_frame from file rather than directory scan")
         current_data_frame = read_hashes_from_file(args.input_hash_file, io_logger)
 
     # One way or another, we should have a current_data_frame now
+    # https://stackoverflow.com/questions/15943769
     executor_logger.info("Current DataFrame contains {} rows".format(len(current_data_frame.index)))
     # The only analysis we can do on the current_data_frame alone is looking within for duplicates
     if args.output_duplicates is not None:
         executor_logger.info("Finding duplicate files in current_data_frame based on hash")
         duplicates_data_frame = determine_duplicate_files(current_data_frame)
+        # https://stackoverflow.com/questions/45759966
+        executor_logger.info(
+            "Duplicates DataFrame contains {} rows across {} groups".format(len(duplicates_data_frame.index),
+                                                                            duplicates_data_frame[
+                                                                                "full_hash"].nunique()))
         executor_logger.debug("Writing duplicate file list to disk")
         write_hashes_to_file(duplicates_data_frame, args.output_duplicates, io_logger)
 

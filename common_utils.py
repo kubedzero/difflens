@@ -8,7 +8,8 @@ def print_memory(logger):
     logger.debug(psutil.swap_memory())
     # https://stackoverflow.com/questions/938733
     process = psutil.Process(getpid())
-    logger.info("RAM MB used by Python process: {}".format(process.memory_info().rss / 1000 / 1000))
+    # https://stackoverflow.com/questions/455612
+    logger.info("RAM MB used by Python process: {:.1f}".format(process.memory_info().rss / 1000 / 1000))
 
 
 def resolve_absolute_path(path_to_process, logger):

@@ -93,6 +93,8 @@ def compute_diffs(input_path, logger, byte_count_to_hash=1000000, enable_multith
 
     # Create the top-level dict in which we'll store duplicates. Dict keys at this level are file sizes in bytes
     file_duplicates_dict = {}
+    # Initialize counters
+    files_seen = directories_seen = bytes_read = 0
 
     # https://stackoverflow.com/questions/53123867
     # Process top-down. If we wanted bottom up, we could add topdown=False to the walk() arguments
@@ -100,9 +102,10 @@ def compute_diffs(input_path, logger, byte_count_to_hash=1000000, enable_multith
     # dirs is a list of subdirectories in the current dir_path
     # files is a list of file names in the current dir_path
     for dir_path, dirs, files in walk(path_to_process):
-
+        directories_seen += 1
         # Iterate through files that are immediate children in the current dir_path
         for file in files:
+            files_seen += 1
             # Construct the absolute path that we'll need to access the file
             absolute_file_path = path.join(dir_path, file)
             # Construct the relative path based on user input that we'll end up storing in the dict
@@ -113,6 +116,11 @@ def compute_diffs(input_path, logger, byte_count_to_hash=1000000, enable_multith
             file_size_bytes = path.getsize(absolute_file_path)
             # If we plan to diff on more than just the number of bytes in the file, proceed
             if not disable_all_hashing:
+                if not disable_full_hashing:
+                    bytes_read += file_size_bytes
+                else:
+                    bytes_read += min(file_size_bytes, byte_count_to_hash)
+
                 # Check if the fileBytesDict already contains an entry for the current file's size
                 if file_size_bytes not in file_duplicates_dict:
                     # If no entry existed, create a new dict as a value and populate it using a helper
@@ -132,8 +140,12 @@ def compute_diffs(input_path, logger, byte_count_to_hash=1000000, enable_multith
                 file_duplicates_dict = add_or_update_dict_list(file_duplicates_dict, file_size_bytes,
                                                                input_file_path)
         # We've exited the for loop for the current dir_path's files, onto the next dir_path
-        # TODO count folders seen
 
+    # Now that we're done traversing, print out the collected bytes read and directory/file count
+    logger.info("{:.1f} MB of data read from disk across {} directories & {} files".format(bytes_read / 1000 / 1000,
+                                                                                           directories_seen,
+                                                                                           files_seen))
+    # TODO determine processing speed by taking MB/time during hashing, files/time for hashing, files/time for comparing
     # Return the dict to the caller
     return file_duplicates_dict
 

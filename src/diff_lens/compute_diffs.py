@@ -13,13 +13,24 @@ from common_utils import sanitize_and_validate_directory_path
 
 # Helper to log the progress made during hashing
 def log_current_progress(logger, start_time, current_time, bytes_read, files_seen, directories_seen):
-    run_time = current_time - start_time
+    run_time_seconds = current_time - start_time
+    run_time_minutes = run_time_seconds / 60
     bytes_read_mb = bytes_read / 1000 / 1000
-    processed_mb_per_second = bytes_read_mb / run_time
-    processed_files_per_second = files_seen / run_time
-    logger.info("{:.1f}MB of data read from disk across {} directories & {} files in {:.2f} seconds at {:.1f}MBps, "
-                "or {:.1f} files per second".format(bytes_read_mb, directories_seen, files_seen, run_time,
-                                                    processed_mb_per_second, processed_files_per_second))
+    processed_mb_per_second = bytes_read_mb / run_time_seconds
+    # Toggle file processing rate in seconds or minutes depending on speed
+    file_processing_time = run_time_seconds
+    file_processing_rate = files_seen / run_time_seconds
+    file_processing_unit = "second"
+    # Switch to minutes if we process fewer than 1 file per second, or 60 files per minute
+    if file_processing_rate < 1:
+        file_processing_time = run_time_minutes
+        file_processing_rate = files_seen / run_time_minutes
+        file_processing_unit = "minute"
+    logger.info(
+        "{:.1f}MB of data read from disk across {} directories & {} files in {:.2f} {}(s) at {:.0f}MBps, "
+        "or {:.0f} files per {}".format(bytes_read_mb, directories_seen, files_seen, file_processing_time,
+                                        file_processing_unit, processed_mb_per_second, file_processing_rate,
+                                        file_processing_unit))
 
 
 # Helper to handle creating or updating a list stored in a dict

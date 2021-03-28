@@ -1,11 +1,14 @@
+# Used to construct paths or traverse directory trees
 from os import path, walk
+# Used to track time spent, which allows calculation of processing rates and log intervals
 from time import time
 
-import pandas
+# Used for computing the hash of a file on disk
 from blake3 import blake3
+# Used to create DataFrames
+from pandas import DataFrame
 
-import common_utils
-
+from common_utils import sanitize_and_validate_directory_path
 
 # Helper to log the progress made during hashing
 def log_current_progress(logger, start_time, current_time, bytes_read, files_seen, directories_seen):
@@ -103,12 +106,13 @@ def compute_diffs(input_path, logger, byte_count_to_hash, disable_all_hashing, d
                                                                                     byte_count_to_hash / 1000 / 1000,
                                                                                     disable_full_hashing))
     # Input directory, which we'll modify to be an absolute path without a trailing slash (how Python wants it)
-    path_to_process = common_utils.sanitize_and_validate_directory_path(input_path, logger)
+    path_to_process = sanitize_and_validate_directory_path(input_path, logger)
 
     # Create the top-level dict in which we'll store duplicates. Dict keys at this level are file sizes in bytes
     file_duplicates_dict = {}
     # Initialize counters
     files_seen = last_files_seen = directories_seen = bytes_read = bytes_total = 0
+    # https://www.tutorialspoint.com/python/time_time.htm
     start_time = last_logger_time = time()
 
     # https://stackoverflow.com/questions/53123867
@@ -204,5 +208,5 @@ def flatten_dict_to_data_frame(file_duplicates_dict):
 
     # Now that we have a flat-formatted output_list, input it into a DataFrame while specifying column names
     # https://stackoverflow.com/questions/13784192
-    data_frame = pandas.DataFrame(output_list, columns=["relative_path", "hash", "file_size_bytes"])
+    data_frame = DataFrame(output_list, columns=["relative_path", "hash", "file_size_bytes"])
     return data_frame

@@ -1,13 +1,15 @@
+# Used to construct or modify file paths and to find this Process ID
 from os import path, sep, getpid
 
-import psutil
+# Used to get system-wide memory information
+from psutil import virtual_memory, swap_memory, Process
 
 
 def print_memory(logger):
-    logger.debug(psutil.virtual_memory())
-    logger.debug(psutil.swap_memory())
+    logger.debug(virtual_memory())
+    logger.debug(swap_memory())
     # https://stackoverflow.com/questions/938733
-    process = psutil.Process(getpid())
+    process = Process(getpid())
     # https://stackoverflow.com/questions/455612
     # TODO better logging of memory. Should be debug?
     logger.info("RAM MB used by Python process: {:.1f}".format(process.memory_info().rss / 1000 / 1000))

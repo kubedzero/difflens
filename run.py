@@ -1,6 +1,7 @@
 # This is the entry to the project, what a CLI user of Python will call
 # Used for getting more easily defined CLI args
 import argparse
+# Used for printing the Python working directory
 from os import getcwd
 # Used for getting the list of arguments with which the program was called
 from sys import argv

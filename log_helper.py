@@ -1,13 +1,14 @@
 # https://docs.python.org/3/howto/logging.html#logging-basic-tutorial
 # https://www.toptal.com/python/in-depth-python-logging
 import logging
-import sys
+# Used to define the console log output
+from sys import stdout
 
 LOG_FORMATTER = logging.Formatter("%(asctime)s[%(levelname)s][%(name)s]: %(message)s", datefmt='%Y-%m-%dT%H:%M:%S%z')
 
 
 def get_console_handler(log_level):
-    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler = logging.StreamHandler(stdout)
     console_handler.setFormatter(LOG_FORMATTER)
     console_handler.setLevel(log_level)
     return console_handler

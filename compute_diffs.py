@@ -1,4 +1,5 @@
 from os import path, walk
+from time import time
 
 import pandas
 from blake3 import blake3
@@ -83,18 +84,23 @@ def update_partial_dict(dict_to_update, absolute_path, relative_path, file_size_
 # most efficiently hashed in a multi-threaded manner.
 # If disable_all_hashing is set to True, only the file size has to match to be considered a duplicate
 # If disable_full_hashing is set to True, only the partial hash has to match to be considered a duplicate
-# TODO add logging to this file
 # TODO add logging that looks at last logged time and only outputs if it's been X minutes.
 #  Processed X directories/files/mb
 def compute_diffs(input_path, logger, byte_count_to_hash=1000000, enable_multithreading=True, disable_all_hashing=False,
                   disable_full_hashing=False):
+    # Log our hashing state
+    logger.info("Disable all hashing, using just file size? {}. "
+                "Disable full hashing, using just the first {:.2f} MB? {}.".format(disable_all_hashing,
+                                                                                   byte_count_to_hash / 1000 / 1000,
+                                                                                   disable_full_hashing))
     # Input directory, which we'll modify to be an absolute path without a trailing slash (how Python wants it)
     path_to_process = common_utils.sanitize_and_validate_directory_path(input_path, logger)
 
     # Create the top-level dict in which we'll store duplicates. Dict keys at this level are file sizes in bytes
     file_duplicates_dict = {}
     # Initialize counters
-    files_seen = directories_seen = bytes_read = 0
+    files_seen = directories_seen = bytes_read = bytes_total_MB = 0
+    start_time = time()
 
     # https://stackoverflow.com/questions/53123867
     # Process top-down. If we wanted bottom up, we could add topdown=False to the walk() arguments
@@ -114,6 +120,7 @@ def compute_diffs(input_path, logger, byte_count_to_hash=1000000, enable_multith
             # Get the size of the file, in Bytes
             # https://stackoverflow.com/questions/6591931
             file_size_bytes = path.getsize(absolute_file_path)
+            bytes_total_MB += file_size_bytes / 1000 / 1000
             # If we plan to diff on more than just the number of bytes in the file, proceed
             if not disable_all_hashing:
                 if not disable_full_hashing:
@@ -141,11 +148,18 @@ def compute_diffs(input_path, logger, byte_count_to_hash=1000000, enable_multith
                                                                input_file_path)
         # We've exited the for loop for the current dir_path's files, onto the next dir_path
 
-    # Now that we're done traversing, print out the collected bytes read and directory/file count
-    logger.info("{:.1f} MB of data read from disk across {} directories & {} files".format(bytes_read / 1000 / 1000,
-                                                                                           directories_seen,
-                                                                                           files_seen))
-    # TODO determine processing speed by taking MB/time during hashing, files/time for hashing, files/time for comparing
+    # Now that we're done traversing, print out summarized information
+    run_time = time() - start_time
+    bytes_read_MB = bytes_read / 1000 / 1000
+    processed_MB_per_second = bytes_read_MB / run_time
+    processed_files_per_second = files_seen / run_time
+    logger.info("{:.1f} MB of data read from disk across {} directories & {} files in {:.2f} seconds at {:.1f}MBps, "
+                "or {:.1f} files per second".format(bytes_read_MB, directories_seen, files_seen, run_time,
+                                                    processed_MB_per_second, processed_files_per_second))
+    if disable_all_hashing or disable_full_hashing:
+        bytes_saved_MB = bytes_total_MB - bytes_read_MB
+        logger.info(
+            "By partially/fully disabling hashing, we skipped reading {:.1f}MB from disk".format(bytes_saved_MB))
     # Return the dict to the caller
     return file_duplicates_dict
 

@@ -124,7 +124,8 @@ def main(args):
             write_hashes_to_file(modified_data_frame, args.output_modified_files, io_logger)
 
     # Write current_data_frame to disk if an output path was provided. Done after analysis since it's already in memory
-    if args.output_hash_file is not None:
+    # TODO figure out what to do when --disable_full_hashing is passed in. Still write to same place?
+    if args.output_hash_file is not None and not args.disable_full_hashing:
         # If the input_hash_file arg was also provided, don't bother writing an output file since it would be identical
         if args.input_hash_file is not None:
             executor_logger.info(

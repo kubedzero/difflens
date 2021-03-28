@@ -38,6 +38,7 @@ def determine_modified_files(original_data_frame, comparator_data_frame):
 
 
 # Returns a list of files that shared a hash with at least one other file having a different path
+# TODO add logging to this file
 def determine_duplicate_files(data_frame):
     # Create a Series containing all the unique values in the full_hash field, and the count of each
     # https://stackoverflow.com/questions/48628417

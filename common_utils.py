@@ -48,6 +48,6 @@ def sanitize_and_validate_directory_path(path_to_process, logger):
 
     # Clear the path of a trailing slash if one exists, to standardize with walk() subdirectories
     if path_to_process[-1] == sep:
-        logger.warn("Last character of directory is a slash, removing it")
+        logger.warning("Last character of directory is a slash, removing it")
         path_to_process = path_to_process[:-1]
     return path_to_process

@@ -83,10 +83,13 @@ def update_partial_dict(dict_to_update, absolute_path, relative_path, file_size_
 # most efficiently hashed in a multi-threaded manner.
 # If disable_all_hashing is set to True, only the file size has to match to be considered a duplicate
 # If disable_full_hashing is set to True, only the partial hash has to match to be considered a duplicate
-def compute_diffs(input_path, byte_count_to_hash=1000000, enable_multithreading=True, disable_all_hashing=False,
+# TODO add logging to this file
+# TODO add logging that looks at last logged time and only outputs if it's been X minutes.
+#  Processed X directories/files/mb
+def compute_diffs(input_path, logger, byte_count_to_hash=1000000, enable_multithreading=True, disable_all_hashing=False,
                   disable_full_hashing=False):
     # Input directory, which we'll modify to be an absolute path without a trailing slash (how Python wants it)
-    path_to_process = common_utils.sanitize_and_validate_directory_path(input_path)
+    path_to_process = common_utils.sanitize_and_validate_directory_path(input_path, logger)
 
     # Create the top-level dict in which we'll store duplicates. Dict keys at this level are file sizes in bytes
     file_duplicates_dict = {}

@@ -49,6 +49,7 @@ def configure_argument_parser():
     return parser
 
 
+# NOTE: PyCharm may think args is not used, but parser.parse_args() needs it here
 def main(args):
     # Set up the argparse object that defines and handles program input arguments
     parser = configure_argument_parser()
@@ -65,7 +66,7 @@ def main(args):
     if args.scan_directory is not None and args.input_hash_file is None:
         executor_logger.info("Beginning directory scan and file hash computation")
         byte_count_to_hash = 1000000
-        current_dict = compute_diffs(args.scan_directory, byte_count_to_hash=byte_count_to_hash,
+        current_dict = compute_diffs(args.scan_directory, io_logger, byte_count_to_hash=byte_count_to_hash,
                                      disable_all_hashing=args.disable_all_hashing,
                                      disable_full_hashing=args.disable_full_hashing)
         executor_logger.info("Directory scan and file hash computation complete. Flattening output into DataFrame")
@@ -81,7 +82,7 @@ def main(args):
             else:
                 executor_logger.info(
                     "Partial hashes used. Maximum MB of files read: {}".format(
-                        len(current_data_frame.index()) * byte_count_to_hash))
+                        len(current_data_frame.index) * byte_count_to_hash))
         # TODO determine processing speed by taking MB/time during hashing, files/time for hashing, files/time for comparing
     else:
         # Otherwise, the hash file was provided in place of a scan directory. Read it in as a data_frame
@@ -89,6 +90,7 @@ def main(args):
         current_data_frame = read_hashes_from_file(args.input_hash_file, io_logger)
 
     # One way or another, we should have a current_data_frame now
+    executor_logger.info("Current DataFrame contains {} rows".format(len(current_data_frame.index)))
     # The only analysis we can do on the current_data_frame alone is looking within for duplicates
     if args.output_duplicates is not None:
         executor_logger.info("Finding duplicate files in current_data_frame based on hash")
@@ -106,6 +108,7 @@ def main(args):
         if args.output_removed_files is not None:
             executor_logger.info("Finding files in the comparison_data_frame that have been (re)moved")
             removed_data_frame = determine_removed_files(comparison_data_frame, current_data_frame)
+            executor_logger.info("(Re)moved DataFrame contains {} rows".format(len(removed_data_frame.index)))
             executor_logger.debug("Writing (re)moved file list to disk")
             write_hashes_to_file(removed_data_frame, args.output_removed_files, io_logger)
 
@@ -113,6 +116,7 @@ def main(args):
         if args.output_new_files is not None:
             executor_logger.info("Finding files in the comparison_data_frame that have been added")
             added_data_frame = determine_removed_files(current_data_frame, comparison_data_frame)
+            executor_logger.info("Added DataFrame contains {} rows".format(len(added_data_frame.index)))
             executor_logger.debug("Writing added file list to disk")
             write_hashes_to_file(added_data_frame, args.output_new_files, io_logger)
 
@@ -120,6 +124,7 @@ def main(args):
         if args.output_modified_files is not None:
             executor_logger.info("Finding files with different hashes than their comparison_data_frame counterparts")
             modified_data_frame = determine_modified_files(comparison_data_frame, current_data_frame)
+            executor_logger.info("Modified DataFrame contains {} rows".format(len(modified_data_frame.index)))
             executor_logger.debug("Writing modified file list to disk")
             write_hashes_to_file(modified_data_frame, args.output_modified_files, io_logger)
 
@@ -133,7 +138,8 @@ def main(args):
             exit(0)
         executor_logger.debug("Writing newly computed file hashes to disk")
         write_hashes_to_file(current_data_frame, args.output_hash_file, io_logger)
-        exit(0)
+    executor_logger.warning("Shutting down diff-lens")
+    exit(0)
 
 
 # https://stackoverflow.com/questions/419163

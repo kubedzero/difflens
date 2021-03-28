@@ -9,7 +9,7 @@ import common_utils
 
 # Helper to log the progress made during hashing
 def log_current_progress(logger, start_time, current_time, bytes_read, files_seen, directories_seen):
-    run_time = time() - start_time
+    run_time = current_time - start_time
     bytes_read_mb = bytes_read / 1000 / 1000
     processed_mb_per_second = bytes_read_mb / run_time
     processed_files_per_second = files_seen / run_time
@@ -95,15 +95,13 @@ def update_partial_dict(dict_to_update, absolute_path, relative_path, file_size_
 # most efficiently hashed in a multi-threaded manner.
 # If disable_all_hashing is set to True, only the file size has to match to be considered a duplicate
 # If disable_full_hashing is set to True, only the partial hash has to match to be considered a duplicate
-# TODO add logging that looks at last logged time and only outputs if it's been X minutes.
-#  Processed X directories/files/mb
-def compute_diffs(input_path, logger, byte_count_to_hash=1000000, enable_multithreading=True, disable_all_hashing=False,
-                  disable_full_hashing=False):
+def compute_diffs(input_path, logger, byte_count_to_hash, disable_all_hashing, disable_full_hashing,
+                  log_update_interval_seconds, log_update_interval_files, enable_multithreading=True):
     # Log our hashing state
-    logger.info("Disable all hashing, using just file size? {}. "
-                "Disable full hashing, using just the first {:.2f} MB? {}.".format(disable_all_hashing,
-                                                                                   byte_count_to_hash / 1000 / 1000,
-                                                                                   disable_full_hashing))
+    logger.debug("Disable all hashing, using just file size? {}. "
+                 "Disable full hashing, using just the first {:.2f} MB? {}.".format(disable_all_hashing,
+                                                                                    byte_count_to_hash / 1000 / 1000,
+                                                                                    disable_full_hashing))
     # Input directory, which we'll modify to be an absolute path without a trailing slash (how Python wants it)
     path_to_process = common_utils.sanitize_and_validate_directory_path(input_path, logger)
 
@@ -123,9 +121,9 @@ def compute_diffs(input_path, logger, byte_count_to_hash=1000000, enable_multith
         # Iterate through files that are immediate children in the current dir_path
         for file in files:
             # Log an update if we haven't logged for a while, going either by time or number of files
-            # TODO make this customizable
             current_time = time()
-            if (current_time - last_logger_time) > 1 or (files_seen - last_files_seen) > 1000:
+            if (current_time - last_logger_time) > log_update_interval_seconds or (
+                    files_seen - last_files_seen) > log_update_interval_files:
                 log_current_progress(logger, start_time, current_time, bytes_read, files_seen, directories_seen)
                 last_logger_time = current_time
                 last_files_seen = files_seen
@@ -172,8 +170,6 @@ def compute_diffs(input_path, logger, byte_count_to_hash=1000000, enable_multith
         bytes_saved_mb = (bytes_total - bytes_read) / 1000 / 1000
         logger.info(
             "By partially/fully disabling hashing, we skipped reading {:.1f}MB from disk".format(bytes_saved_mb))
-        if disable_full_hashing:
-            logger.warning("Partial hashing is enabled but still being stored in field full_hash. BE CAREFUL!")
     # Return the dict to the caller
     return file_duplicates_dict
 

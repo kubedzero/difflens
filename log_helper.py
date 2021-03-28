@@ -13,7 +13,7 @@ def get_console_handler(log_level):
     return console_handler
 
 
-def get_logger_with_name(log_name, log_level_console="INFO"):
+def get_logger_with_name(log_name, log_level_console):
     logger = logging.getLogger(log_name)
     # With this pattern, it's rarely necessary to propagate the error up to parent
     logger.propagate = False

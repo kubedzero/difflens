@@ -12,13 +12,19 @@ def update_data_frame_hash_column_name(data_frame, disable_full_hashing, logger,
         column_name = "partial_hash"
     else:
         column_name = "full_hash"
+
     if prepare_for_writing:
-        logger.info("Renaming column 'hash' to {} before writing to disk".format(column_name))
+        logger.debug("Renaming column 'hash' to '{}' before writing to disk".format(column_name))
         return data_frame.rename(columns={"hash": column_name}, inplace=True)
-        # TODO what happens if the field didn't exist? TBD
     else:
-        logger.info("Renaming column {} to 'hash' after reading from disk".format(column_name))
-        return data_frame.rename(columns={column_name: "hash"}, inplace=True)
+        if column_name in data_frame.columns:
+            logger.debug("Renaming column {} to 'hash' after reading from disk".format(column_name))
+            return data_frame.rename(columns={column_name: "hash"}, inplace=True)
+        else:
+            message = "Column {} did not exist in the input! Did you switch between partial and full hashing?".format(
+                column_name)
+            logger.error(message)
+            raise ValueError(message)
 
 
 def read_hashes_from_file(input_path, logger, disable_full_hashing):

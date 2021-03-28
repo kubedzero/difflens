@@ -1,7 +1,6 @@
 # This is the entry to the project, what a CLI user of python will call
 # Used for getting more easily defined CLI args
 import argparse
-from os import chdir
 # Used for getting the list of arguments with which the program was called
 from sys import argv
 
@@ -34,15 +33,15 @@ def main(args):
     parser.add_argument("--output_removed_files", "-r", help="Output file listing files that have been removed",
                         type=str)
     parser.add_argument("--output_new_files", "-n", help="Output file listing files that have been added", type=str)
-    parser.add_argument("--output_modified-files", "-m", help="Output file listing files that have been modified",
+    parser.add_argument("--output_modified_files", "-m", help="Output file listing files that have been modified",
                         type=str)
     parser.add_argument("--output_duplicates", "-d", help="Output file listing files that contain matching data",
                         type=str)
 
     # Define arguments where presence/absence indicates a Boolean. Interprets as true if passed in, false otherwise
-    parser.add_argument("--skip_all_hashing", "-p", help="Skip all hashing, comparing on file size alone",
+    parser.add_argument("--disable_all_hashing", "-p", help="Skip all hashing, comparing on file size alone",
                         action="store_true")
-    parser.add_argument("--skip_full_hashing", "-f", help="Skip full hashing, comparing on only partial hashing",
+    parser.add_argument("--disable_full_hashing", "-f", help="Skip full hashing, comparing on only partial hashing",
                         action="store_true")
 
     # Now that we've defined the args to look for, parse them and store their values in the ArgumentParser
@@ -54,52 +53,62 @@ def main(args):
     pandas.set_option("display.width", None)
     pandas.set_option("display.max_colwidth", None)
 
-    # https://www.geeksforgeeks.org/python-os-chdir-method/
-    print("computing diff dicts")
-    # Simulate running an old versus a new by choosing two different directories while keeping the relative path equal
-    chdir("/Users/kz/TestDir")
-    shared_relative_path = "."
-    dict_to_write = compute_diffs(shared_relative_path)
-    chdir("/Users/kz/TestDir 2")
-    dict_to_write_new = compute_diffs(shared_relative_path)
+    # If the scan directory was given and not the input hash file, try to scan
+    if args.scan_directory is not None and args.input_hash_file is None:
+        current_dict = compute_diffs(args.scan_directory, disable_all_hashing=args.disable_all_hashing,
+                                     disable_full_hashing=args.disable_full_hashing)
+        current_data_frame = flatten_dict_to_data_frame(current_dict)
 
-    print("converting to dataframe")
-    output_data_frame = flatten_dict_to_data_frame(dict_to_write)
-    output_data_frame_new = flatten_dict_to_data_frame(dict_to_write_new)
+        # Print out some statistics
+        print_memory()
+        # Get the sum of the number of bytes of all files we read
+        # TODO disable this or modify this if all/full hashing is disabled
+        # TODO determine processing speed by taking MB/time during hashing, files/time for hashing, files/time for comparing
+        print("Total MB of files read: {}".format(current_data_frame["file_size_bytes"].sum() / 1000 / 1000))
+    else:
+        # Otherwise, the hash file was provided in place of a scan directory. Read it in as a data_frame
+        current_data_frame = read_hashes_from_file(args.input_hash_file)
 
-    print("writing dataframes to disk")
-    write_hashes_to_file(output_data_frame, "/tmp/old.tsv")
-    write_hashes_to_file(output_data_frame_new, "/tmp/new.tsv")
+    # One way or another, we should have a current_data_frame now
+    # The only analysis we can do on the current_data_frame alone is looking within for duplicates
+    if args.output_duplicates is not None:
+        print("finding duplicate files based on hash")
+        duplicates_data_frame = determine_duplicate_files(current_data_frame)
+        write_hashes_to_file(duplicates_data_frame, args.output_duplicates)
 
-    print("reading dataframes from disk")
-    input_old = read_hashes_from_file("/tmp/old.tsv")
-    input_new = read_hashes_from_file("/tmp/new.tsv")
+    # Next, see if we have a comparison hash file and read in its data_frame if so
+    if args.comparison_hash_file is not None:
+        print("found a comparison hash file")
+        comparison_data_frame = read_hashes_from_file(args.comparison_hash_file)
 
-    # confirm the dataframe we create from tabular data matches the one we never exported
-    # https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.equals.html
-    # print("old output equals read?", output_data_frame.equals(input_old))
-    # print("new output equals read?", output_data_frame_new.equals(input_new))
-    # TODO determine processing speed by taking MB/time during hashing, files/time for hashing, files/time for comparing
+        # Now we have a current_data_frame and a comparison_data_frame and we can see what to analyze
+        # See if we should be looking for deleted files based on relative path
+        if args.output_removed_files is not None:
+            print("find deleted files")
+            deleted_data_frame = determine_removed_files(comparison_data_frame, current_data_frame)
+            write_hashes_to_file(deleted_data_frame, args.output_removed_files)
 
-    print_memory()
-    # Get the sum of the number of bytes of all files we read
-    print("Total MB of files read: {}".format(input_new["file_size_bytes"].sum() / 1000 / 1000))
+        # See if we should be looking for added files based on relative path
+        if args.output_new_files is not None:
+            print("find added files")
+            added_data_frame = determine_removed_files(current_data_frame, comparison_data_frame)
+            write_hashes_to_file(added_data_frame, args.output_new_files)
 
-    print("find deleted files")
-    deleted_data_frame = determine_removed_files(input_old, input_new)
-    # print(deleted_data_frame)
+        # See if we should be looking for modified files based on relative path and hash
+        if args.output_modified_files is not None:
+            print("find modified files")
+            modified_data_frame = determine_modified_files(comparison_data_frame, current_data_frame)
+            write_hashes_to_file(modified_data_frame, args.output_modified_files)
 
-    print("find added files")
-    added_data_frame = determine_removed_files(input_new, input_old)
-    # print(added_data_frame)
+    # Write current_data_frame to disk if an output path was provided. Done after analysis since it's already in memory
+    if args.output_hash_file is not None:
 
-    print("find modified files")
-    modified_data_frame = determine_modified_files(input_old, input_new)
-    # print(modified_data_frame)
-
-    print("find duplicate files")
-    duplicates_data_frame = determine_duplicate_files(input_new)
-    # print(duplicates_data_frame)
+        if args.input_hash_file is not None:
+            print("No changes were made to {}, use that instead of {} as no scan+compute took place".format(
+                args.input_hash_file, args.output_hash_file))
+            exit(0)
+        write_hashes_to_file(current_data_frame, args.output_hash_file)
+        exit(0)
 
 
 # https://stackoverflow.com/questions/419163

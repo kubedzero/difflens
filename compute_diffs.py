@@ -41,7 +41,7 @@ def update_full_hash_dict(dict_to_update, absolute_path, relative_path, enable_m
 # NOTE: the split structure between the files needing further hash and the small files is in hopes of
 # reducing memory footprint
 def update_partial_dict(dict_to_update, absolute_path, relative_path, file_size_bytes, byte_count_to_hash,
-                        enable_multithreading, enable_full_hash):
+                        enable_multithreading, disable_full_hashing):
     # Open the file in read-only, binary format
     # https://stackabuse.com/file-handling-in-python/
     with open(absolute_path, "rb") as f:
@@ -61,7 +61,7 @@ def update_partial_dict(dict_to_update, absolute_path, relative_path, file_size_
         dict_to_update = add_or_update_dict_list(dict_to_update, dict_key, relative_path)
     else:
         # If we plan to diff on more than just the hash of the first N bytes of the file, proceed
-        if enable_full_hash:
+        if not disable_full_hashing:
             # If false, continue by hashing the full file
             if dict_key not in dict_to_update:
                 dict_to_update[dict_key] = update_full_hash_dict({}, absolute_path, relative_path,
@@ -81,10 +81,10 @@ def update_partial_dict(dict_to_update, absolute_path, relative_path, file_size_
 # their size, partial and/or full hash, saving those values to a dict. Finally, return that dict
 # enable_multithreading is True by default because we assume files being hashed are >1MB and therefore
 # most efficiently hashed in a multi-threaded manner.
-# If enable_partial_hash is set to False, only the file size has to match to be considered a duplicate
-# If enable_full_hash is set to False, only the partial hash has to match to be considered a duplicate
-def compute_diffs(input_path, byte_count_to_hash=1000000, enable_multithreading=True, enable_partial_hash=True,
-                  enable_full_hash=True):
+# If disable_all_hashing is set to True, only the file size has to match to be considered a duplicate
+# If disable_full_hashing is set to True, only the partial hash has to match to be considered a duplicate
+def compute_diffs(input_path, byte_count_to_hash=1000000, enable_multithreading=True, disable_all_hashing=False,
+                  disable_full_hashing=False):
     # Input directory, which we'll modify to be an absolute path without a trailing slash (how Python wants it)
     path_to_process = common_utils.sanitize_and_validate_directory_path(input_path)
 
@@ -109,19 +109,21 @@ def compute_diffs(input_path, byte_count_to_hash=1000000, enable_multithreading=
             # https://stackoverflow.com/questions/6591931
             file_size_bytes = path.getsize(absolute_file_path)
             # If we plan to diff on more than just the number of bytes in the file, proceed
-            if enable_partial_hash:
+            if not disable_all_hashing:
                 # Check if the fileBytesDict already contains an entry for the current file's size
                 if file_size_bytes not in file_duplicates_dict:
                     # If no entry existed, create a new dict as a value and populate it using a helper
                     file_duplicates_dict[file_size_bytes] = update_partial_dict({}, absolute_file_path, input_file_path,
                                                                                 file_size_bytes, byte_count_to_hash,
-                                                                                enable_multithreading, enable_full_hash)
+                                                                                enable_multithreading,
+                                                                                disable_full_hashing)
                 else:
                     # An entry already existed as the value, so pass it to the helper to update
                     file_duplicates_dict[file_size_bytes] = update_partial_dict(file_duplicates_dict[file_size_bytes],
                                                                                 absolute_file_path, input_file_path,
                                                                                 file_size_bytes, byte_count_to_hash,
-                                                                                enable_multithreading, enable_full_hash)
+                                                                                enable_multithreading,
+                                                                                disable_full_hashing)
             else:
                 # Otherwise finish processing this file by adding its bytes to the dict
                 file_duplicates_dict = add_or_update_dict_list(file_duplicates_dict, file_size_bytes,

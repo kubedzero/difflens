@@ -1,6 +1,9 @@
 # This is the entry to the project, what a CLI user of python will call
 from os import chdir
+# Used for getting the list of arguments with which the program was called
+from sys import argv
 
+# Used for configuring DataFrame printing options
 import pandas
 
 from common_utils import print_memory
@@ -8,7 +11,8 @@ from compare_files import determine_duplicate_files, determine_modified_files, d
 from compute_diffs import compute_diffs, flatten_dict_to_data_frame
 from hash_file_io import write_hashes_to_file, read_hashes_from_file
 
-if __name__ == '__main__':
+
+def main(args):
     # Configure printing options so the full data_frame prints
     pandas.set_option('display.max_rows', None)
     pandas.set_option('display.max_columns', None)
@@ -38,9 +42,9 @@ if __name__ == '__main__':
 
     # confirm the dataframe we create from tabular data matches the one we never exported
     # https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.equals.html
-    print("old output equals read?", output_data_frame.equals(input_old))
-    print("new output equals read?", output_data_frame_new.equals(input_new))
-    # Todo determine processing speed by taking MB/time during hashing, files/time for hashing, files/time for comparing
+    # print("old output equals read?", output_data_frame.equals(input_old))
+    # print("new output equals read?", output_data_frame_new.equals(input_new))
+    # TODO determine processing speed by taking MB/time during hashing, files/time for hashing, files/time for comparing
 
     print_memory()
     # Get the sum of the number of bytes of all files we read
@@ -48,16 +52,21 @@ if __name__ == '__main__':
 
     print("find deleted files")
     deleted_data_frame = determine_removed_files(input_old, input_new)
-    print(deleted_data_frame)
+    # print(deleted_data_frame)
 
     print("find added files")
     added_data_frame = determine_removed_files(input_new, input_old)
-    print(added_data_frame)
+    # print(added_data_frame)
 
     print("find modified files")
     modified_data_frame = determine_modified_files(input_old, input_new)
-    print(modified_data_frame)
+    # print(modified_data_frame)
 
     print("find duplicate files")
     duplicates_data_frame = determine_duplicate_files(input_new)
-    print(duplicates_data_frame)
+    # print(duplicates_data_frame)
+
+
+# https://stackoverflow.com/questions/419163
+# Call main(sys.argv[1:]) this file is run. Pass the arg array from element 1 onwards to exclude the program name arg
+if __name__ == "__main__": main(argv[1:])

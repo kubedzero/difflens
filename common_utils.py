@@ -50,6 +50,4 @@ def sanitize_and_validate_directory_path(path_to_process):
     if path_to_process[-1] == sep:
         print("Last character of directory is a slash, removing it")
         path_to_process = path_to_process[:-1]
-    else:
-        print("Input path correctly ended without a trailing slash")
     return path_to_process

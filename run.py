@@ -86,28 +86,47 @@ def main(args):
         print_memory(executor_logger)
     else:
         # Otherwise, the hash file was provided in place of a scan directory. Read it in as a data_frame
-        executor_logger.info(
+        io_logger.info(
             "Reading current_data_frame from file {} rather than directory scan".format(args.input_hash_file))
         current_data_frame = read_hashes_from_file(args.input_hash_file, io_logger, args.disable_full_hashing)
 
     # One way or another, we should have a current_data_frame now
     # https://stackoverflow.com/questions/15943769
     current_data_frame_rows = len(current_data_frame.index)
-    executor_logger.info("Current DataFrame contains {} rows, beginning analysis".format(current_data_frame_rows))
+    # Write current_data_frame to disk if an output path was provided.
+    if args.output_hash_file is not None:
+        # If the input_hash_file arg was also provided, don't bother writing an output file since it would be identical
+        if args.input_hash_file is not None:
+            executor_logger.info(
+                "Desired output {} would be identical to {}, use that instead as no scan+compute took place".format(
+                    args.output_hash_file, args.input_hash_file))
+        else:
+            if args.disable_all_hashing:
+                descriptor = "file list"
+            elif args.disable_full_hashing:
+                descriptor = "partial file hashes"
+            else:
+                descriptor = "full file hashes"
+            io_logger.info(
+                "Writing newly computed {} for {} files to disk at {}".format(descriptor, current_data_frame_rows,
+                                                                              args.output_hash_file))
+            write_hashes_to_file(current_data_frame, args.output_hash_file, io_logger,
+                                 disable_full_hashing=args.disable_full_hashing)
 
+    executor_logger.info("Beginning analysis of Current DataFrame with {} rows".format(current_data_frame_rows))
     # The only analysis we can do on the current_data_frame alone is looking within for duplicates
     if args.output_duplicates is not None:
         executor_logger.info("Finding duplicates in Current DataFrame based on file hash")
         duplicates_data_frame = determine_duplicate_files(current_data_frame)
         # https://stackoverflow.com/questions/45759966
-        executor_logger.info("Writing Duplicate DataFrame with {} rows across {} groups to disk at {}".format(
+        io_logger.info("Writing Duplicate DataFrame with {} rows across {} groups to disk at {}".format(
             len(duplicates_data_frame.index), duplicates_data_frame["hash"].nunique(), args.output_duplicates))
         write_hashes_to_file(duplicates_data_frame, args.output_duplicates, io_logger,
                              disable_full_hashing=args.disable_full_hashing)
 
     # Next, see if we have a comparison hash file and read in its data_frame if so
     if args.comparison_hash_file is not None:
-        executor_logger.debug("Reading Comparison DataFrame from disk")
+        io_logger.debug("Reading Comparison DataFrame from disk at {}".format(args.comparison_hash_file))
         comparison_data_frame = read_hashes_from_file(args.comparison_hash_file, io_logger, args.disable_full_hashing)
 
         # Now we have a current_data_frame and a comparison_data_frame and we can see what to analyze
@@ -115,7 +134,7 @@ def main(args):
         if args.output_removed_files is not None:
             executor_logger.info("Finding files in the comparison_data_frame that have been (Re)moved")
             removed_data_frame = determine_removed_files(comparison_data_frame, current_data_frame)
-            executor_logger.info(
+            io_logger.info(
                 "Writing (Re)moved DataFrame with {} rows to disk at {}".format(len(removed_data_frame.index),
                                                                                 args.output_removed_files))
             write_hashes_to_file(removed_data_frame, args.output_removed_files, io_logger,
@@ -125,9 +144,8 @@ def main(args):
         if args.output_added_files is not None:
             executor_logger.info("Finding files in the comparison_data_frame that have been Added")
             added_data_frame = determine_removed_files(current_data_frame, comparison_data_frame)
-            executor_logger.info(
-                "Writing Added DataFrame with {} rows to disk at {}".format(len(added_data_frame.index),
-                                                                            args.output_added_files))
+            io_logger.info("Writing Added DataFrame with {} rows to disk at {}".format(len(added_data_frame.index),
+                                                                                       args.output_added_files))
             write_hashes_to_file(added_data_frame, args.output_added_files, io_logger,
                                  disable_full_hashing=args.disable_full_hashing)
 
@@ -135,7 +153,7 @@ def main(args):
         if args.output_modified_files is not None:
             executor_logger.info("Finding files with different hashes than their Comparison DataFrame counterparts")
             modified_data_frame = determine_modified_files(comparison_data_frame, current_data_frame)
-            executor_logger.info(
+            io_logger.info(
                 "Writing Modified DataFrame with {} rows to disk at {}".format(len(modified_data_frame.index),
                                                                                args.output_modified_files))
             write_hashes_to_file(modified_data_frame, args.output_modified_files, io_logger, hash_column_exists=False)
@@ -143,19 +161,6 @@ def main(args):
         if args.output_removed_files is not None or args.output_added_files is not None or args.output_modified_files is not None:
             executor_logger.warning(
                 "Skipping any Added, Removed, or Modified analysis as no comparison_hash_file was passed in")
-    # Write current_data_frame to disk if an output path was provided. Done after analysis since it's already in memory
-    if args.output_hash_file is not None:
-        # If the input_hash_file arg was also provided, don't bother writing an output file since it would be identical
-        if args.input_hash_file is not None:
-            executor_logger.info(
-                "No changes were made to {}, use that instead of {} as no scan+compute took place".format(
-                    args.input_hash_file, args.output_hash_file))
-            exit(0)
-        executor_logger.info(
-            "Writing newly computed file hashes for {} files to disk at {}".format(current_data_frame_rows,
-                                                                                   args.output_hash_file))
-        write_hashes_to_file(current_data_frame, args.output_hash_file, io_logger,
-                             disable_full_hashing=args.disable_full_hashing)
     executor_logger.warning("Shutting down diff-lens")
     exit(0)
 

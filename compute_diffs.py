@@ -10,6 +10,7 @@ from pandas import DataFrame
 
 from common_utils import sanitize_and_validate_directory_path
 
+
 # Helper to log the progress made during hashing
 def log_current_progress(logger, start_time, current_time, bytes_read, files_seen, directories_seen):
     run_time = current_time - start_time
@@ -199,8 +200,13 @@ def flatten_dict_to_data_frame(file_duplicates_dict):
                 else:
                     # If the value wasn't a dict, then it's a list of files.
                     # This occurs when the partial hash was actually a full hash due to the file being small
+                    # or when we stopped hashing early due to disable_full_hash=True
                     for list_item in level_one_value:
-                        output_list.append([list_item, level_one_key[0], level_zero_key])
+                        # Handle cases where key is a Tuple of the hash and file_fully_read indicator OR a hash string
+                        if isinstance(level_one_key, tuple):
+                            output_list.append([list_item, level_one_key[0], level_zero_key])
+                        else:
+                            output_list.append([list_item, level_one_key, level_zero_key])
         else:
             # if the value wasn't a dict, then it's a list of files
             for list_item in level_zero_value:

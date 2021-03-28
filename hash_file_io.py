@@ -17,7 +17,7 @@ def update_data_frame_hash_column_name(data_frame, disable_full_hashing, logger,
 
     if prepare_for_writing:
         logger.debug("Renaming column 'hash' to '{}' before writing to disk".format(column_name))
-        return data_frame.rename(columns={"hash": column_name}, inplace=True)
+        return data_frame.rename(columns={"hash": column_name}, inplace=False)
     else:
         # Prevent accessing a column that does not exist by checking before renaming
         # https://stackoverflow.com/questions/24870306
@@ -26,7 +26,7 @@ def update_data_frame_hash_column_name(data_frame, disable_full_hashing, logger,
             # https://stackoverflow.com/questions/11346283
             return data_frame.rename(columns={column_name: "hash"}, inplace=True)
         else:
-            message = "Column {} did not exist in the input! Did you switch between partial and full hashing?".format(
+            message = "Column '{}' did not exist in the input! Did you switch between partial and full hashing?".format(
                 column_name)
             logger.error(message)
             # https://docs.python.org/3/library/exceptions.html
@@ -51,7 +51,8 @@ def read_hashes_from_file(input_path, logger, disable_full_hashing):
 def write_hashes_to_file(data_frame, output_path, logger, disable_full_hashing=False, hash_column_exists=True):
     # Only try updating the hash column if the caller indicated it was present in the data_frame
     if hash_column_exists:
-        update_data_frame_hash_column_name(data_frame, disable_full_hashing, logger, prepare_for_writing=True)
+        data_frame = update_data_frame_hash_column_name(data_frame, disable_full_hashing, logger,
+                                                        prepare_for_writing=True)
     # Pandas can handle relative paths, but handle relative->absolute conversion ourselves so we can print extra info
     output_path = sanitize_and_validate_file_path(output_path, logger)
     # https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.to_csv.html

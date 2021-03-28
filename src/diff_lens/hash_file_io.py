@@ -7,6 +7,10 @@ from pandas import read_csv
 from common_utils import sanitize_and_validate_file_path
 
 
+# TODO make a utility that concatenates inputs on relative path, hopefully validating that there are no duplicates
+# Intended for merging the data_frames of multiple disks into one to store or diff
+# A validation error would indicate two disks have the same file, and in that case which will Unraid use?
+
 # Rename data_frame input column "hash" to "full_hash" or "partial_hash" based on the disable_full_hashing flag
 # Alternatively, perform the reverse operation, standardizing "full_hash" or "partial_hash" to "hash"
 def update_data_frame_hash_column_name(data_frame, disable_full_hashing, logger, prepare_for_writing):

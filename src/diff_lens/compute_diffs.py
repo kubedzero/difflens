@@ -152,6 +152,11 @@ def compute_diffs(input_path, logger, byte_count_to_hash, disable_all_hashing, d
             files_seen += 1
             # Construct the absolute path that we'll need to access the file
             absolute_file_path = path.join(dir_path, file)
+            # Try to avoid running into FileNotFoundErrors that might throw when broken symlinks are accessed
+            # If we come across a symbolic link, skip it
+            if path.islink(absolute_file_path):
+                logger.warn("Found a symbolic link at path {}, skipping".format(absolute_file_path))
+                continue
             # Construct the relative path based on user input that we'll end up storing in the dict
             # https://stackoverflow.com/questions/1192978
             input_file_path = path.relpath(absolute_file_path)
@@ -191,7 +196,7 @@ def compute_diffs(input_path, logger, byte_count_to_hash, disable_all_hashing, d
     if disable_all_hashing or disable_full_hashing:
         bytes_saved_mb = (bytes_total - bytes_read) / 1000 / 1000
         logger.info(
-            "By partially/fully disabling hashing, diff-lens skipped reading {:.1f}MB from disk".format(bytes_saved_mb))
+            "By partially/fully disabling hashing, diff-lens skipped reading {:.0f}MB from disk".format(bytes_saved_mb))
     # Return the dict to the caller
     return file_duplicates_dict
 

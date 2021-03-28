@@ -1,4 +1,6 @@
 # This is the entry to the project, what a CLI user of python will call
+# Used for getting more easily defined CLI args
+import argparse
 from os import chdir
 # Used for getting the list of arguments with which the program was called
 from sys import argv
@@ -13,11 +15,44 @@ from hash_file_io import write_hashes_to_file, read_hashes_from_file
 
 
 def main(args):
+    # https://docs.python.org/3/library/argparse.html
+    # https://stackabuse.com/command-line-arguments-in-python/
+    # Set up the argparse object that defines and handles program input arguments
+    parser = argparse.ArgumentParser(description="A program to inspect collections of files for differences")
+
+    # Initialize a group to force either-or argument behavior
+    # https://stackoverflow.com/questions/11154946/
+    arg_group = parser.add_mutually_exclusive_group(required=True)
+    arg_group.add_argument("--scan_directory", "-s", help="Path in which to look for files", type=str)
+    arg_group.add_argument("--input_hash_file", "-i",
+                           help="Input file for new hash values, if we want to skip scanning",
+                           type=str)
+    # Define arguments where a string is expected
+    parser.add_argument("--comparison_hash_file", "-c", help="Path to delimited file containing old hash values",
+                        type=str)
+    parser.add_argument("--output_hash_file", "-o", help="Output file for newly computed hash values", type=str)
+    parser.add_argument("--output_removed_files", "-r", help="Output file listing files that have been removed",
+                        type=str)
+    parser.add_argument("--output_new_files", "-n", help="Output file listing files that have been added", type=str)
+    parser.add_argument("--output_modified-files", "-m", help="Output file listing files that have been modified",
+                        type=str)
+    parser.add_argument("--output_duplicates", "-d", help="Output file listing files that contain matching data",
+                        type=str)
+
+    # Define arguments where presence/absence indicates a Boolean. Interprets as true if passed in, false otherwise
+    parser.add_argument("--skip_all_hashing", "-p", help="Skip all hashing, comparing on file size alone",
+                        action="store_true")
+    parser.add_argument("--skip_full_hashing", "-f", help="Skip full hashing, comparing on only partial hashing",
+                        action="store_true")
+
+    # Now that we've defined the args to look for, parse them and store their values in the ArgumentParser
+    args = parser.parse_args()
+
     # Configure printing options so the full data_frame prints
-    pandas.set_option('display.max_rows', None)
-    pandas.set_option('display.max_columns', None)
-    pandas.set_option('display.width', None)
-    pandas.set_option('display.max_colwidth', None)
+    pandas.set_option("display.max_rows", None)
+    pandas.set_option("display.max_columns", None)
+    pandas.set_option("display.width", None)
+    pandas.set_option("display.max_colwidth", None)
 
     # https://www.geeksforgeeks.org/python-os-chdir-method/
     print("computing diff dicts")
@@ -69,4 +104,5 @@ def main(args):
 
 # https://stackoverflow.com/questions/419163
 # Call main(sys.argv[1:]) this file is run. Pass the arg array from element 1 onwards to exclude the program name arg
-if __name__ == "__main__": main(argv[1:])
+if __name__ == "__main__":
+    main(argv[1:])

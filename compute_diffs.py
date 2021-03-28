@@ -7,6 +7,17 @@ from blake3 import blake3
 import common_utils
 
 
+# Helper to log the progress made during hashing
+def log_current_progress(logger, start_time, current_time, bytes_read, files_seen, directories_seen):
+    run_time = time() - start_time
+    bytes_read_mb = bytes_read / 1000 / 1000
+    processed_mb_per_second = bytes_read_mb / run_time
+    processed_files_per_second = files_seen / run_time
+    logger.info("{:.1f} MB of data read from disk across {} directories & {} files in {:.2f} seconds at {:.1f}MBps, "
+                "or {:.1f} files per second".format(bytes_read_mb, directories_seen, files_seen, run_time,
+                                                    processed_mb_per_second, processed_files_per_second))
+
+
 # Helper to handle creating or updating a list stored in a dict
 def add_or_update_dict_list(dict_to_update, dict_key, string_to_store):
     if dict_key not in dict_to_update:
@@ -99,8 +110,8 @@ def compute_diffs(input_path, logger, byte_count_to_hash=1000000, enable_multith
     # Create the top-level dict in which we'll store duplicates. Dict keys at this level are file sizes in bytes
     file_duplicates_dict = {}
     # Initialize counters
-    files_seen = directories_seen = bytes_read = bytes_total_MB = 0
-    start_time = time()
+    files_seen = last_files_seen = directories_seen = bytes_read = bytes_total = 0
+    start_time = last_logger_time = time()
 
     # https://stackoverflow.com/questions/53123867
     # Process top-down. If we wanted bottom up, we could add topdown=False to the walk() arguments
@@ -111,6 +122,13 @@ def compute_diffs(input_path, logger, byte_count_to_hash=1000000, enable_multith
         directories_seen += 1
         # Iterate through files that are immediate children in the current dir_path
         for file in files:
+            # Log an update if we haven't logged for a while, going either by time or number of files
+            # TODO make this customizable
+            current_time = time()
+            if (current_time - last_logger_time) > 1 or (files_seen - last_files_seen) > 1000:
+                log_current_progress(logger, start_time, current_time, bytes_read, files_seen, directories_seen)
+                last_logger_time = current_time
+                last_files_seen = files_seen
             files_seen += 1
             # Construct the absolute path that we'll need to access the file
             absolute_file_path = path.join(dir_path, file)
@@ -120,7 +138,7 @@ def compute_diffs(input_path, logger, byte_count_to_hash=1000000, enable_multith
             # Get the size of the file, in Bytes
             # https://stackoverflow.com/questions/6591931
             file_size_bytes = path.getsize(absolute_file_path)
-            bytes_total_MB += file_size_bytes / 1000 / 1000
+            bytes_total += file_size_bytes
             # If we plan to diff on more than just the number of bytes in the file, proceed
             if not disable_all_hashing:
                 if not disable_full_hashing:
@@ -149,17 +167,13 @@ def compute_diffs(input_path, logger, byte_count_to_hash=1000000, enable_multith
         # We've exited the for loop for the current dir_path's files, onto the next dir_path
 
     # Now that we're done traversing, print out summarized information
-    run_time = time() - start_time
-    bytes_read_MB = bytes_read / 1000 / 1000
-    processed_MB_per_second = bytes_read_MB / run_time
-    processed_files_per_second = files_seen / run_time
-    logger.info("{:.1f} MB of data read from disk across {} directories & {} files in {:.2f} seconds at {:.1f}MBps, "
-                "or {:.1f} files per second".format(bytes_read_MB, directories_seen, files_seen, run_time,
-                                                    processed_MB_per_second, processed_files_per_second))
+    log_current_progress(logger, start_time, time(), bytes_read, files_seen, directories_seen)
     if disable_all_hashing or disable_full_hashing:
-        bytes_saved_MB = bytes_total_MB - bytes_read_MB
+        bytes_saved_mb = (bytes_total - bytes_read) / 1000 / 1000
         logger.info(
-            "By partially/fully disabling hashing, we skipped reading {:.1f}MB from disk".format(bytes_saved_MB))
+            "By partially/fully disabling hashing, we skipped reading {:.1f}MB from disk".format(bytes_saved_mb))
+        if disable_full_hashing:
+            logger.warning("Partial hashing is enabled but still being stored in field full_hash. BE CAREFUL!")
     # Return the dict to the caller
     return file_duplicates_dict
 
@@ -194,5 +208,5 @@ def flatten_dict_to_data_frame(file_duplicates_dict):
 
     # Now that we have a flat-formatted output_list, input it into a DataFrame while specifying column names
     # https://stackoverflow.com/questions/13784192
-    data_frame = pandas.DataFrame(output_list, columns=["relative_path", "full_hash", "file_size_bytes"])
+    data_frame = pandas.DataFrame(output_list, columns=["relative_path", "hash", "file_size_bytes"])
     return data_frame

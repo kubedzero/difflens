@@ -9,6 +9,7 @@ def print_memory(logger):
     # https://stackoverflow.com/questions/938733
     process = psutil.Process(getpid())
     # https://stackoverflow.com/questions/455612
+    # TODO better logging of memory
     logger.info("RAM MB used by Python process: {:.1f}".format(process.memory_info().rss / 1000 / 1000))
 
 

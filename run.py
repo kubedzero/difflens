@@ -1,6 +1,7 @@
 # This is the entry to the project, what a CLI user of Python will call
 # Used for getting more easily defined CLI args
 import argparse
+from os import getcwd
 # Used for getting the list of arguments with which the program was called
 from sys import argv
 
@@ -60,7 +61,7 @@ def main(args):
     executor_logger = get_logger_with_name("Executor", args.log_level)
     io_logger = get_logger_with_name("IO", args.log_level)
 
-    executor_logger.warning("Beginning execution of diff-lens")
+    executor_logger.warning("Beginning execution of diff-lens from current working directory {}".format(getcwd()))
 
     # If the scan directory was given and not the input hash file, try to scan
     if args.scan_directory is not None and args.input_hash_file is None:
@@ -76,7 +77,7 @@ def main(args):
     else:
         # Otherwise, the hash file was provided in place of a scan directory. Read it in as a data_frame
         executor_logger.debug("Reading current_data_frame from file rather than directory scan")
-        current_data_frame = read_hashes_from_file(args.input_hash_file, io_logger)
+        current_data_frame = read_hashes_from_file(args.input_hash_file, io_logger, args.disable_full_hashing)
 
     # One way or another, we should have a current_data_frame now
     # https://stackoverflow.com/questions/15943769
@@ -91,12 +92,13 @@ def main(args):
                                                                             duplicates_data_frame[
                                                                                 "full_hash"].nunique()))
         executor_logger.debug("Writing duplicate file list to disk")
-        write_hashes_to_file(duplicates_data_frame, args.output_duplicates, io_logger)
+        write_hashes_to_file(duplicates_data_frame, args.output_duplicates, io_logger,
+                             disable_full_hashing=args.disable_full_hashing)
 
     # Next, see if we have a comparison hash file and read in its data_frame if so
     if args.comparison_hash_file is not None:
         executor_logger.debug("Reading comparison hash file from disk")
-        comparison_data_frame = read_hashes_from_file(args.comparison_hash_file, io_logger)
+        comparison_data_frame = read_hashes_from_file(args.comparison_hash_file, io_logger, args.disable_full_hashing)
 
         # Now we have a current_data_frame and a comparison_data_frame and we can see what to analyze
         # See if we should be looking for deleted files based on relative path
@@ -105,7 +107,8 @@ def main(args):
             removed_data_frame = determine_removed_files(comparison_data_frame, current_data_frame)
             executor_logger.info("(Re)moved DataFrame contains {} rows".format(len(removed_data_frame.index)))
             executor_logger.debug("Writing (re)moved file list to disk")
-            write_hashes_to_file(removed_data_frame, args.output_removed_files, io_logger)
+            write_hashes_to_file(removed_data_frame, args.output_removed_files, io_logger,
+                                 disable_full_hashing=args.disable_full_hashing)
 
         # See if we should be looking for added files based on relative path
         if args.output_new_files is not None:
@@ -113,7 +116,8 @@ def main(args):
             added_data_frame = determine_removed_files(current_data_frame, comparison_data_frame)
             executor_logger.info("Added DataFrame contains {} rows".format(len(added_data_frame.index)))
             executor_logger.debug("Writing added file list to disk")
-            write_hashes_to_file(added_data_frame, args.output_new_files, io_logger)
+            write_hashes_to_file(added_data_frame, args.output_new_files, io_logger,
+                                 disable_full_hashing=args.disable_full_hashing)
 
         # See if we should be looking for modified files based on relative path and hash
         if args.output_modified_files is not None:
@@ -121,11 +125,10 @@ def main(args):
             modified_data_frame = determine_modified_files(comparison_data_frame, current_data_frame)
             executor_logger.info("Modified DataFrame contains {} rows".format(len(modified_data_frame.index)))
             executor_logger.debug("Writing modified file list to disk")
-            write_hashes_to_file(modified_data_frame, args.output_modified_files, io_logger)
+            write_hashes_to_file(modified_data_frame, args.output_modified_files, io_logger, hash_column_exists=False)
 
     # Write current_data_frame to disk if an output path was provided. Done after analysis since it's already in memory
-    # TODO figure out what to do when --disable_full_hashing is passed in. Still write to same place?
-    if args.output_hash_file is not None and not args.disable_full_hashing:
+    if args.output_hash_file is not None:
         # If the input_hash_file arg was also provided, don't bother writing an output file since it would be identical
         if args.input_hash_file is not None:
             executor_logger.info(
@@ -133,7 +136,8 @@ def main(args):
                     args.input_hash_file, args.output_hash_file))
             exit(0)
         executor_logger.debug("Writing newly computed file hashes to disk")
-        write_hashes_to_file(current_data_frame, args.output_hash_file, io_logger)
+        write_hashes_to_file(current_data_frame, args.output_hash_file, io_logger,
+                             disable_full_hashing=args.disable_full_hashing)
     executor_logger.warning("Shutting down diff-lens")
     exit(0)
 

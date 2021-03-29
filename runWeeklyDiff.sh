@@ -39,6 +39,9 @@ for disk_num in $(seq 1 $max_disk_num); do
   # https://stackoverflow.com/questions/1015678/get-most-recent-file-in-a-directory-on-linux
   previous_hash_file_pattern="*-disk$disk_num-hashes$file_suffix"
   previous_hash_file=$(find "$output_dir" -type f -maxdepth 1 -name "$previous_hash_file_pattern" | sort -n | tail -1)
+  # If the previous file did not exist, make a stand-in path instead of an empty string
+  # https://www.cyberciti.biz/faq/unix-linux-bash-script-check-if-variable-is-empty/
+  [[ -z "$previous_hash_file" ]] && previous_hash_file="no_such_file"
   echo "Previous hash file we'll compare disk$disk_num against is $previous_hash_file"
 
   # Construct the path to the disk, which we use as the working directory
@@ -65,6 +68,8 @@ for disk_num in $(seq 1 $max_disk_num); do
   # https://superuser.com/questions/454907/how-to-execute-a-command-in-screen-and-detach
   # https://fvdm.com/code/howto-write-screen-output-to-a-log-file
   screen -L -Logfile "$log_output_dir/$run_date-$screen_name.log" -S "$screen_name" -dm bash -c "$diff_lens_command"
+  printf "Monitor logs at $log_output_dir/$run_date-$screen_name.log for Screen with name $screen_name\n\n"
 done
 
-echo "Screens started for $max_disk_num diff-lens executions, their names are 'diff-lens-diskN'. Use screen -r <name> to connect."
+echo "Screens started for $max_disk_num diff-lens executions. Use screen -r <name> to connect."
+echo "$(screen -list)"

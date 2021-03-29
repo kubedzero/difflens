@@ -45,9 +45,9 @@ def configure_argument_parser():
 
     # Define arguments where an int is expected
     parser.add_argument("--log_update_interval_seconds", "-t",
-                        help="Target interval in seconds between log updates when hashing", type=int, default=60)
+                        help="Target interval in seconds between log updates when hashing", type=int, default=30)
     parser.add_argument("--log_update_interval_files", "-x", help="Target interval of files hashed between log updates",
-                        type=int, default=1000)
+                        type=int, default=10000)
 
     # Define arguments where presence/absence indicates a Boolean. Interprets as true if passed in, false otherwise
     parser.add_argument("--disable_all_hashing", "-p", help="Skip all hashing, comparing on file size alone",

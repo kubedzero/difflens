@@ -131,7 +131,7 @@ def main(args):
 
     # Next, see if we have a comparison hash file and read in its data_frame if so
     if args.comparison_hash_file is not None:
-        io_logger.debug("Reading Comparison DataFrame from disk at {}".format(args.comparison_hash_file))
+        io_logger.info("Reading Comparison DataFrame from disk at {}".format(args.comparison_hash_file))
         comparison_data_frame = read_hashes_from_file(args.comparison_hash_file, io_logger, args.disable_full_hashing)
 
         # Now we have a current_data_frame and a comparison_data_frame and we can see what to analyze

@@ -196,7 +196,8 @@ def compute_diffs(input_path, logger, byte_count_to_hash, disable_all_hashing, d
     if disable_all_hashing or disable_full_hashing:
         bytes_saved_mb = (bytes_total - bytes_read) / 1000 / 1000
         logger.info(
-            "By partially/fully disabling hashing, diff-lens skipped reading {:.0f}MB from disk".format(bytes_saved_mb))
+            "By partially/fully disabling hashing, "
+            "diff-lens skipped reading {:.0f}MB from files on disk under {}".format(bytes_saved_mb, input_path))
     # Return the dict to the caller
     return file_duplicates_dict
 

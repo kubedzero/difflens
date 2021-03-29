@@ -127,5 +127,3 @@ dmypy.json
 # Pyre type checker
 .pyre/
 .DS_Store
-kz_config.json
-old_results.csv

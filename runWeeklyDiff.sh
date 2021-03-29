@@ -56,8 +56,7 @@ for disk_num in $(seq 1 $max_disk_num); do
   --output_added_files $output_added_files \
   --output_modified_files $output_modified_files \
   --output_duplicates $output_duplicates  \
-  --log_update_interval_seconds 60 \
-  --disable_full_hashing"
+  --log_update_interval_seconds 60"
 
   # Construct the full command used to start up diff-lens. We'll trigger this with exec
   diff_lens_command="/usr/bin/python3 /boot/diff_lens/run.py $diff_lens_args"

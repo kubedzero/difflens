@@ -51,14 +51,25 @@ def add_or_update_dict_list(dict_to_update, dict_key, string_to_store):
 # Provided with a starting dict, an absolute path of a file, and a relative path of the same file,
 # compute the BLAKE3 hash. Then save it to the dict with the key as the hash in hexadecimal form
 # and the value as a list of relative paths sharing the same hash. Finally, return the updated dict.
-def update_full_hash_dict(dict_to_update, absolute_path, relative_path, enable_multithreading):
+def update_full_hash_dict(dict_to_update, absolute_path, relative_path):
+    # Read in chunks to avoid MemoryError exceptions, or OOM errors
+    # https://stackoverflow.com/questions/1131220
+    blake3_manager = blake3()
+    # Bytes to read in at a time, 2^20 = 1MB
+    read_block_size = 2 ** 20
     # Open the file in read-only, binary format
     # https://stackabuse.com/file-handling-in-python/
-    with open(absolute_path, "rb") as f:
-        # Get the hexadecimal 64-character representation of the hash
-        # https://github.com/oconnor663/blake3-py
-        hex_hash_string = blake3(f.read(), multithreading=enable_multithreading).hexdigest()
-
+    with open(absolute_path, "rb") as stream:
+        while True:
+            data = stream.read(read_block_size)
+            # Exit the while loop if we run out of data
+            if not data:
+                break
+            # Update the hash we have so far with the new non-None data
+            blake3_manager.update(data)
+    # Get the hexadecimal 64-character representation of the hash
+    # https://github.com/oconnor663/blake3-py
+    hex_hash_string = blake3_manager.hexdigest()
     # Save the hash and RELATIVE path to the dict, creating a new list if one didn't exist before
     dict_to_update = add_or_update_dict_list(dict_to_update, hex_hash_string, relative_path)
     # Return the updated dict to the caller
@@ -74,14 +85,14 @@ def update_full_hash_dict(dict_to_update, absolute_path, relative_path, enable_m
 # NOTE: the split structure between the files needing further hash and the small files is in hopes of
 # reducing memory footprint
 def update_partial_dict(dict_to_update, absolute_path, relative_path, file_size_bytes, byte_count_to_hash,
-                        enable_multithreading, disable_full_hashing):
+                        disable_full_hashing):
     # Open the file in read-only, binary format
     # https://stackabuse.com/file-handling-in-python/
-    with open(absolute_path, "rb") as f:
+    with open(absolute_path, "rb") as stream:
         # Get the hexadecimal 64-character representation of the first N bytes of the file
         # https://github.com/oconnor663/blake3-py
         # NOTE: If a file is 100 bytes, f.read(100) will read the entire file.
-        hex_hash_string = blake3(f.read(byte_count_to_hash)).hexdigest()
+        hex_hash_string = blake3(stream.read(byte_count_to_hash)).hexdigest()
 
     # Boolean on whether or not the file was smaller than the read buffer. This tells us if we fully read the file
     file_fully_hashed = file_size_bytes <= byte_count_to_hash
@@ -97,12 +108,10 @@ def update_partial_dict(dict_to_update, absolute_path, relative_path, file_size_
         if not disable_full_hashing:
             # If false, continue by hashing the full file
             if dict_key not in dict_to_update:
-                dict_to_update[dict_key] = update_full_hash_dict({}, absolute_path, relative_path,
-                                                                 enable_multithreading)
+                dict_to_update[dict_key] = update_full_hash_dict({}, absolute_path, relative_path)
             else:
                 dict_to_update[dict_key] = update_full_hash_dict(dict_to_update[dict_key], absolute_path,
-                                                                 relative_path,
-                                                                 enable_multithreading)
+                                                                 relative_path)
         else:
             # Otherwise finish processing this file by adding its partial hash and name to the dict
             dict_to_update = add_or_update_dict_list(dict_to_update, hex_hash_string, relative_path)
@@ -112,12 +121,10 @@ def update_partial_dict(dict_to_update, absolute_path, relative_path, file_size_
 
 # Entry point for our hash computation. Given a relative or absolute input path, find files it contains and determine
 # their size, partial and/or full hash, saving those values to a dict. Finally, return that dict
-# enable_multithreading is True by default because we assume files being hashed are >1MB and therefore
-# most efficiently hashed in a multi-threaded manner.
 # If disable_all_hashing is set to True, only the file size has to match to be considered a duplicate
 # If disable_full_hashing is set to True, only the partial hash has to match to be considered a duplicate
 def compute_diffs(input_path, logger, byte_count_to_hash, disable_all_hashing, disable_full_hashing,
-                  log_update_interval_seconds, log_update_interval_files, enable_multithreading=True):
+                  log_update_interval_seconds, log_update_interval_files):
     # Log our hashing state
     logger.debug("Disable all hashing, using just file size? {}. "
                  "Disable full hashing, using just the first {:.2f} MB? {}.".format(disable_all_hashing,
@@ -176,14 +183,12 @@ def compute_diffs(input_path, logger, byte_count_to_hash, disable_all_hashing, d
                     # If no entry existed, create a new dict as a value and populate it using a helper
                     file_duplicates_dict[file_size_bytes] = update_partial_dict({}, absolute_file_path, input_file_path,
                                                                                 file_size_bytes, byte_count_to_hash,
-                                                                                enable_multithreading,
                                                                                 disable_full_hashing)
                 else:
                     # An entry already existed as the value, so pass it to the helper to update
                     file_duplicates_dict[file_size_bytes] = update_partial_dict(file_duplicates_dict[file_size_bytes],
                                                                                 absolute_file_path, input_file_path,
                                                                                 file_size_bytes, byte_count_to_hash,
-                                                                                enable_multithreading,
                                                                                 disable_full_hashing)
             else:
                 # Otherwise finish processing this file by adding its bytes to the dict

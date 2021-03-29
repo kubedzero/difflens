@@ -6,9 +6,9 @@ set -euo pipefail
 
 # Set the max disk number to check. We expect disks will be numbered 1,2,etc. up to max_disk_num
 max_disk_num=3
-# Set the directory where we'll store the output files
-output_dir="/tmp"
-# Set the directory where we'll output logs
+# Set the directory where we'll store the output files. No trailing slash
+output_dir="/boot/diff_lens"
+# Set the directory where we'll output logs. No trailing slash
 log_output_dir="/tmp"
 # Set the suffix of our output files
 file_suffix=".tsv.gz"

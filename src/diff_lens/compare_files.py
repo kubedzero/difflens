@@ -21,6 +21,7 @@ def determine_removed_files(original_data_frame, comparison_data_frame):
 
 
 # Return a list of files that had a hash change between the original and comparison data_frame
+# TODO maybe use modification_date here to determine corruption, aka hash changes without modification_date change
 def determine_modified_files(original_data_frame, comparison_data_frame):
     # Join the comparison onto the original based on relative path
     # Use an inner join to preserve only rows with a relative path that exists in both the original and comparison
@@ -31,13 +32,13 @@ def determine_modified_files(original_data_frame, comparison_data_frame):
     # Next, filter the data_frame to only contain rows where the original and comparison hash differ
     filtered_data_frame = analysis_data_frame[analysis_data_frame["hash_x"] != analysis_data_frame["hash_y"]]
     # Reduce the filtered data frame to only fields we care about: filename
-    # TODO maybe use modification_date here to determine corruption, aka hash changes without modification_date change
     # https://www.analyseup.com/python-data-science-reference/pandas-selecting-dropping-and-renaming-columns.html
     reduced_data_frame = filtered_data_frame["relative_path"]
     return reduced_data_frame
 
 
 # Return a list of files sharing a duplicate field (hash or size) with at least one other file having a different path
+# TODO enforce file_size as an input, so we can calculate the amount of space all duplicates take vs deduped space
 def determine_duplicate_files(data_frame, duplicate_field):
     # Create a Series containing all the unique values in the hash field, and the count of each
     # https://stackoverflow.com/questions/48628417

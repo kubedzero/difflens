@@ -2,11 +2,13 @@
 # Used for getting more easily defined CLI args
 import argparse
 # Used for printing the Python working directory
-from os import getcwd
+from os import getcwd, getpid
 # Used for getting the list of arguments with which the program was called
 from sys import argv
 
-from common_utils import print_memory
+# Used to get memory information
+from psutil import Process
+
 from compare_files import determine_duplicate_files, determine_modified_files, determine_removed_files
 from compute_diffs import compute_diffs, flatten_dict_to_data_frame
 from hash_file_io import write_hashes_to_file, read_hashes_from_file
@@ -83,7 +85,10 @@ def main(args):
         executor_logger.info("Directory scan and file hash computation complete. Flattening output into DataFrame")
         current_data_frame = flatten_dict_to_data_frame(current_dict)
         # Print out stats on memory used
-        print_memory(executor_logger)
+        # https://stackoverflow.com/questions/938733
+        process = Process(getpid())
+        # https://stackoverflow.com/questions/455612
+        executor_logger.info("RAM used by Python process: {:.1f}MB".format(process.memory_info().rss / 1000 / 1000))
     else:
         # Otherwise, the hash file was provided in place of a scan directory. Read it in as a data_frame
         io_logger.info(

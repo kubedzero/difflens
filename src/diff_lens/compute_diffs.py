@@ -159,6 +159,7 @@ def compute_diffs(input_path, logger, byte_count_to_hash, disable_all_hashing, d
                 last_files_seen = files_seen
 
             files_seen += 1
+            # TODO add new input argument for an excludes file used to skip certain paths or extensions
             # Construct the absolute path that we'll need to access the file
             absolute_file_path = path.join(dir_path, file)
             # Skip symbolic link access to avoid accessing broken symlinks causing FileNotFoundError exceptions

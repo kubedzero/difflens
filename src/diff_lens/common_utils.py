@@ -22,7 +22,7 @@ def resolve_absolute_path(path_to_process, logger):
 def sanitize_and_validate_file_path(path_to_process, logger):
     # Update the input path to be absolute
     path_to_process = resolve_absolute_path(path_to_process, logger)
-    # Now that we have an absolute path, confirm it does not point at a directory and exit early if so
+    # Now that there is an absolute path, confirm it does not point at a directory and exit early if so
     if path.isdir(path_to_process):
         logger.error("Path points to a directory, but a file is needed. Exiting")
         exit(1)
@@ -32,7 +32,7 @@ def sanitize_and_validate_file_path(path_to_process, logger):
 def sanitize_and_validate_directory_path(path_to_process, logger):
     # Update the input path to be absolute
     path_to_process = resolve_absolute_path(path_to_process, logger)
-    # Now that we have an absolute path, confirm it points to a directory and not a file
+    # Now that there is an absolute path, confirm it points to a directory and not a file
     if not path.isdir(path_to_process):
         logger.error("Input wasn't a directory, exiting")
         exit(1)

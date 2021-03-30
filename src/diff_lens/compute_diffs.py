@@ -13,26 +13,27 @@ from common_utils import sanitize_and_validate_directory_path
 
 # Helper to log the progress made during hashing
 def log_current_progress(logger, start_time, current_time, bytes_read, files_seen, directories_seen):
+    # Calculate stats
     run_time_seconds = current_time - start_time
     run_time_minutes = run_time_seconds / 60
     bytes_read_mb = bytes_read / 1000 / 1000
     processed_mb_per_second = bytes_read_mb / run_time_seconds
 
-    # Toggle units for run_time and file_processing_rate
+    # If processing has taken >5m, switch printout from seconds to minutes for decreased granularity
     file_processing_time = run_time_seconds
-    file_processing_rate = files_seen / run_time_seconds
-    file_processing_unit = "second"
     time_unit = "seconds"
-
-    # Switch to minutes if we have been processing for more than 300 seconds, or 5 minutes
     if file_processing_time > 300:
         time_unit = "minutes"
         file_processing_time = run_time_minutes
 
-    # Switch to files per minute if we process fewer than 1 file per second, or 60 files per minute
-    if file_processing_rate < 1:
+    # If processing speed is <5 files per second, switch printout to files per minute for increased granularity
+    file_processing_rate = files_seen / run_time_seconds
+    file_processing_unit = "second"
+    if file_processing_rate < 5:
         file_processing_rate = files_seen / run_time_minutes
         file_processing_unit = "minute"
+
+    # Print the variable-unit log line
     logger.info(
         "{:.1f}MB of data read from disk across {} directories & {} files in {:.2f} {} at {:.0f}MBps, "
         "or {:.0f} files per {}".format(bytes_read_mb, directories_seen, files_seen, file_processing_time, time_unit,
@@ -48,11 +49,12 @@ def add_or_update_dict_list(dict_to_update, dict_key, string_to_store):
     return dict_to_update
 
 
-# Provided with a starting dict, an absolute path of a file, and a relative path of the same file,
-# compute the BLAKE3 hash. Then save it to the dict with the key as the hash in hexadecimal form
-# and the value as a list of relative paths sharing the same hash. Finally, return the updated dict.
+# Compute the BLAKE3 hash and store its hexadecimal representation in a dict when provided with said dict,
+# an absolute path of a file, and its relative path (for the dict). The dict entry's key is the hash, and the value
+# is a list of relative paths sharing the same hash. Finally, return the updated dict.
+# TODO input the blake3 hasher and file so we don't re-read the first bit
 def update_full_hash_dict(dict_to_update, absolute_path, relative_path):
-    # Read in chunks to avoid MemoryError exceptions, or OOM errors
+    # Read in chunks to avoid MemoryError exceptions when the full file doesn't fit in memory
     # https://stackoverflow.com/questions/1131220
     blake3_manager = blake3()
     # Bytes to read in at a time, 2^20 = 1MB
@@ -62,12 +64,12 @@ def update_full_hash_dict(dict_to_update, absolute_path, relative_path):
     with open(absolute_path, "rb") as stream:
         while True:
             data = stream.read(read_block_size)
-            # Exit the while loop if we run out of data
+            # Exit the while loop only when there is no more data to read
             if not data:
                 break
-            # Update the hash we have so far with the new non-None data
+            # Update the hash with the new non-None data
             blake3_manager.update(data)
-    # Get the hexadecimal 64-character representation of the hash
+    # Get the hexadecimal 64-character representation of the hash's final state
     # https://github.com/oconnor663/blake3-py
     hex_hash_string = blake3_manager.hexdigest()
     # Save the hash and RELATIVE path to the dict, creating a new list if one didn't exist before
@@ -76,14 +78,13 @@ def update_full_hash_dict(dict_to_update, absolute_path, relative_path):
     return dict_to_update
 
 
-# Provided with a starting dict, an absolute path of a file, a relative path of the same file,
-# the size of the input file in bytes, and the amount of bytes to read, read the first N bytes
-# from the file to compute the BLAKE3 hash of those bytes. Then determine if the entire file was
-# read, or if more remains. Save the result to the dict, where the key is a Tuple of the partial hash
-# and whether or not the file was fully hashed, and the value is either a nested dict of the
-# full hash OR a list of the files sharing the same partial hash that ALSO is under the hash threshold
-# NOTE: the split structure between the files needing further hash and the small files is in hopes of
-# reducing memory footprint
+# Provided with a starting dict, an absolute and path of a file, its size in bytes, and the amount of bytes to read,
+# read the first N bytes from the file to compute the BLAKE3 hash of those bytes. Then determine if the entire file
+# was read, or if more remains. Save the result to the dict, where the key is a Tuple of (partial hash,
+# file_size_less_than_bytes_to_read?) and the value is either:
+# 1. a nested dict of {key:full_hash, value:list_of_relative_paths} updated by a full_hash helper
+# 2. a list of relative paths of the files sharing the same partial hash that ALSO is under the hash threshold
+# NOTE: The split value structure is in hopes of reducing dict memory footprint
 def update_partial_dict(dict_to_update, absolute_path, relative_path, file_size_bytes, byte_count_to_hash,
                         disable_full_hashing):
     # Open the file in read-only, binary format
@@ -94,17 +95,16 @@ def update_partial_dict(dict_to_update, absolute_path, relative_path, file_size_
         # NOTE: If a file is 100 bytes, f.read(100) will read the entire file.
         hex_hash_string = blake3(stream.read(byte_count_to_hash)).hexdigest()
 
-    # Boolean on whether or not the file was smaller than the read buffer. This tells us if we fully read the file
+    # Boolean on whether or not the file was smaller than the read buffer. If True, the file was read in its entirety.
     file_fully_hashed = file_size_bytes <= byte_count_to_hash
-    # Make the dictKey a tuple indicating the hash value, but also whether or not we fully read the file
+    # Make the dictKey a Tuple with schema (string:partial hash, bool:file_size_less_than_bytes_to_read?)
     dict_key = (hex_hash_string, file_fully_hashed)
 
     if file_fully_hashed:
-        # If the file was fully hashed, we don't need additional hashing since we already covered the full file.
-        # Instead of making another nested dict with a repeated hash, just store the list at this level
+        # If file was fully hashed, the full file was read. No further hashing necessary, store in a list at this level
         dict_to_update = add_or_update_dict_list(dict_to_update, dict_key, relative_path)
     else:
-        # If we plan to diff on more than just the hash of the first N bytes of the file, proceed
+        # Proceed if the caller did not indicate that full hashing should be skipped (disable_full_hashing=True)
         if not disable_full_hashing:
             # If false, continue by hashing the full file
             if dict_key not in dict_to_update:
@@ -119,13 +119,13 @@ def update_partial_dict(dict_to_update, absolute_path, relative_path, file_size_
     return dict_to_update
 
 
-# Entry point for our hash computation. Given a relative or absolute input path, find files it contains and determine
+# Entry point for hashing computation. Given a relative or absolute input path, find files it contains and determine
 # their size, partial and/or full hash, saving those values to a dict. Finally, return that dict
 # If disable_all_hashing is set to True, only the file size has to match to be considered a duplicate
 # If disable_full_hashing is set to True, only the partial hash has to match to be considered a duplicate
 def compute_diffs(input_path, logger, byte_count_to_hash, disable_all_hashing, disable_full_hashing,
                   log_update_interval_seconds, log_update_interval_files):
-    # Log our hashing state
+    # Log the hashing state
     logger.debug("Disable all hashing, using just file size? {}. "
                  "Disable full hashing, using just the first {:.2f} MB? {}.".format(disable_all_hashing,
                                                                                     byte_count_to_hash / 1000 / 1000,
@@ -141,7 +141,7 @@ def compute_diffs(input_path, logger, byte_count_to_hash, disable_all_hashing, d
     start_time = last_logger_time = time()
 
     # https://stackoverflow.com/questions/53123867
-    # Process top-down. If we wanted bottom up, we could add topdown=False to the walk() arguments
+    # Process top-down. Adding topdown=False to the walk() arguments would read from the deepest structure upwards
     # dir_path will update to the directory we're currently scanning. It is an absolute path
     # dirs is a list of subdirectories in the current dir_path
     # files is a list of file names in the current dir_path
@@ -149,18 +149,18 @@ def compute_diffs(input_path, logger, byte_count_to_hash, disable_all_hashing, d
         directories_seen += 1
         # Iterate through files that are immediate children in the current dir_path
         for file in files:
-            # Log an update if we haven't logged for a while, going either by time or number of files
+            # Log an update if enough files have been seen since the last update, or if the time interval was reached
             current_time = time()
             if (current_time - last_logger_time) > log_update_interval_seconds or (
                     files_seen - last_files_seen) > log_update_interval_files:
                 log_current_progress(logger, start_time, current_time, bytes_read, files_seen, directories_seen)
                 last_logger_time = current_time
                 last_files_seen = files_seen
+
             files_seen += 1
             # Construct the absolute path that we'll need to access the file
             absolute_file_path = path.join(dir_path, file)
-            # Try to avoid running into FileNotFoundErrors that might throw when broken symlinks are accessed
-            # If we come across a symbolic link, skip it
+            # Skip symbolic link access to avoid accessing broken symlinks causing FileNotFoundError exceptions
             if path.islink(absolute_file_path):
                 logger.warn("Found a symbolic link at path {}, skipping".format(absolute_file_path))
                 continue
@@ -171,7 +171,7 @@ def compute_diffs(input_path, logger, byte_count_to_hash, disable_all_hashing, d
             # https://stackoverflow.com/questions/6591931
             file_size_bytes = path.getsize(absolute_file_path)
             bytes_total += file_size_bytes
-            # If we plan to diff on more than just the number of bytes in the file, proceed
+            # Proceed with partial or full hashing if disable_all_hashing=False
             if not disable_all_hashing:
                 if not disable_full_hashing:
                     bytes_read += file_size_bytes
@@ -212,7 +212,7 @@ def flatten_dict_to_data_frame(file_duplicates_dict):
     # Define a list which will contain the flattened rows to write
     # Schema: file_path::string, full_hash::string, file_size_bytes::int
     # TODO add modified date, hashing date?
-    output_list = []
+    flat_list = []
 
     # Flatten the data by iterating through the nested dicts in the correct way
     # Level zero contains file size as the key
@@ -224,23 +224,23 @@ def flatten_dict_to_data_frame(file_duplicates_dict):
                     # Level two contains the full hash as the key, and guaranteed to have a list of files as the value
                     for level_two_key, level_two_value in level_one_value.items():
                         for list_item in level_two_value:
-                            output_list.append([list_item, level_two_key, level_zero_key])
+                            flat_list.append([list_item, level_two_key, level_zero_key])
                 else:
                     # If the value wasn't a dict, then it's a list of files.
                     # This occurs when the partial hash was actually a full hash due to the file being small
-                    # or when we stopped hashing early due to disable_full_hash=True
+                    # or when hashing was stopped early due to disable_full_hash=True
                     for list_item in level_one_value:
                         # Handle cases where key is a Tuple of the hash and file_fully_read indicator OR a hash string
                         if isinstance(level_one_key, tuple):
-                            output_list.append([list_item, level_one_key[0], level_zero_key])
+                            flat_list.append([list_item, level_one_key[0], level_zero_key])
                         else:
-                            output_list.append([list_item, level_one_key, level_zero_key])
+                            flat_list.append([list_item, level_one_key, level_zero_key])
         else:
             # if the value wasn't a dict, then it's a list of files
             for list_item in level_zero_value:
-                output_list.append([list_item, "not_computed", level_zero_key])
+                flat_list.append([list_item, "not_computed", level_zero_key])
 
-    # Now that we have a flat-formatted output_list, input it into a DataFrame while specifying column names
+    # Input the flat-formatted list into a DataFrame while specifying column names
     # https://stackoverflow.com/questions/13784192
-    data_frame = DataFrame(output_list, columns=["relative_path", "hash", "file_size_bytes"])
+    data_frame = DataFrame(flat_list, columns=["relative_path", "hash", "file_size_bytes"])
     return data_frame

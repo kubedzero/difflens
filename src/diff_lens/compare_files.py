@@ -12,7 +12,7 @@ def determine_removed_files(original_data_frame, comparison_data_frame):
     # Thanks to left outer join, the fields merged from the comparison will be NaN if the filename wasn't present there
     # https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.DataFrame.isna.html#pandas.DataFrame.isna
     filtered_data_frame = analysis_data_frame[analysis_data_frame["hash_y"].isna()]
-    # Reduce the filtered data frame to only fields we care about: filename, hash, and size in bytes
+    # Reduce the filtered data frame to only the fields returned by this: filename, hash, and size in bytes
     # https://www.analyseup.com/python-data-science-reference/pandas-selecting-dropping-and-renaming-columns.html
     reduced_data_frame = filtered_data_frame[["relative_path", "hash_x", "file_size_bytes_x"]]
     # Rename the reduced data frame to have friendly column names, discarding the merge artifacts
@@ -31,14 +31,14 @@ def determine_modified_files(original_data_frame, comparison_data_frame):
                                                     validate="one_to_one")
     # Next, filter the data_frame to only contain rows where the original and comparison hash differ
     filtered_data_frame = analysis_data_frame[analysis_data_frame["hash_x"] != analysis_data_frame["hash_y"]]
-    # Reduce the filtered data frame to only fields we care about: filename
+    # Reduce the filtered data frame to only the fields returned by this: filename
     # https://www.analyseup.com/python-data-science-reference/pandas-selecting-dropping-and-renaming-columns.html
     reduced_data_frame = filtered_data_frame["relative_path"]
     return reduced_data_frame
 
 
 # Return a list of files sharing a duplicate field (hash or size) with at least one other file having a different path
-# TODO enforce file_size as an input, so we can calculate the amount of space all duplicates take vs deduped space
+# TODO enforce file_size as an input, so the amount of space all duplicates take vs deduped space can be calculated
 def determine_duplicate_files(data_frame, duplicate_field):
     # Create a Series containing all the unique values in the hash field, and the count of each
     # https://stackoverflow.com/questions/48628417
@@ -49,6 +49,6 @@ def determine_duplicate_files(data_frame, duplicate_field):
     # Filter the data_frame to only include rows whose hash appeared in the multiple_occurrence_hashes Index
     filtered_data_frame = data_frame[
         data_frame[duplicate_field].isin(multiple_occurrence_hashes)]
-    # Reduce the data_frame to only the fields we care about: hash and filename
+    # Reduce the data_frame to only the fields returned by this: hash and filename
     reduced_data_frame = filtered_data_frame[[duplicate_field, "relative_path"]]
     return reduced_data_frame

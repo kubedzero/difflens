@@ -39,7 +39,7 @@ def update_data_frame_hash_column_name(data_frame, disable_full_hashing, logger,
 
 
 def read_hashes_from_file(input_path, logger, disable_full_hashing):
-    # Pandas can handle relative paths, but handle relative->absolute conversion ourselves so we can print extra info
+    # Pandas can handle relative paths, but handle relative->absolute conversion here so extra info can print
     input_path = sanitize_and_validate_file_path(input_path, logger)
     # Use pandas to read a TSV file and parse it into a dataFrame
     # https://pandas.pydata.org/docs/reference/api/pandas.read_csv.html
@@ -57,7 +57,7 @@ def write_hashes_to_file(data_frame, output_path, logger, disable_full_hashing=F
     if hash_column_exists:
         data_frame = update_data_frame_hash_column_name(data_frame, disable_full_hashing, logger,
                                                         prepare_for_writing=True)
-    # Pandas can handle relative paths, but handle relative->absolute conversion ourselves so we can print extra info
+    # Pandas can handle relative paths, but handle relative->absolute conversion here so extra info can print
     output_path = sanitize_and_validate_file_path(output_path, logger)
     # https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.to_csv.html
     # Use tabs as separators

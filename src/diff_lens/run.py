@@ -26,7 +26,7 @@ def configure_argument_parser():
     arg_group = parser.add_mutually_exclusive_group(required=True)
     arg_group.add_argument("--scan_directory", "-s", help="Path in which to look for files", type=str)
     arg_group.add_argument("--input_hash_file", "-i",
-                           help="Input file for new hash values, if we want to skip scanning",
+                           help="Input file for new hash values if live directory scanning should be skipped",
                            type=str)
     # Define arguments where a string is expected
     parser.add_argument("--comparison_hash_file", "-c", help="Path to delimited file containing old hash values",
@@ -95,7 +95,7 @@ def main(args):
             "Reading current_data_frame from file {} rather than directory scan".format(args.input_hash_file))
         current_data_frame = read_hashes_from_file(args.input_hash_file, io_logger, args.disable_full_hashing)
 
-    # One way or another, we should have a current_data_frame now
+    # The current_data_frame should now be loaded, either from scanning or reading in a file.
     # https://stackoverflow.com/questions/15943769
     current_data_frame_rows = len(current_data_frame.index)
     # Write current_data_frame to disk if an output path was provided.
@@ -119,9 +119,9 @@ def main(args):
                                  disable_full_hashing=args.disable_full_hashing)
 
     executor_logger.info("Beginning analysis of Current DataFrame with {} rows".format(current_data_frame_rows))
-    # The only analysis we can do on the current_data_frame alone is looking within for duplicates
+    # If CLI arg is set, perform the only analysis that can be done without a comparison file: finding duplicates
     if args.output_duplicates is not None:
-        # Handle when all hashing is disabled and we can only diff on file size
+        # Handle when all hashing is disabled and a diff can only occur on file size
         if args.disable_all_hashing:
             duplicate_field = "file_size_bytes"
         else:
@@ -134,13 +134,14 @@ def main(args):
         write_hashes_to_file(duplicates_data_frame, args.output_duplicates, io_logger,
                              disable_full_hashing=args.disable_full_hashing)
 
-    # Next, see if we have a comparison hash file and read in its data_frame if so
+    # If the path to a comparison_hash_file is provided by the CLI, read it in for comparison-based analysis
     if args.comparison_hash_file is not None:
         io_logger.info("Reading Comparison DataFrame from disk at {}".format(args.comparison_hash_file))
         comparison_data_frame = read_hashes_from_file(args.comparison_hash_file, io_logger, args.disable_full_hashing)
 
-        # Now we have a current_data_frame and a comparison_data_frame and we can see what to analyze
-        # See if we should be looking for deleted files based on relative path
+        # Both current_data_frame and comparison_data_frame are loaded into memory, begin analysis
+
+        # If CLI arg is set, look for deleted files based on relative path
         if args.output_removed_files is not None:
             executor_logger.info("Finding files in the comparison_data_frame that have been (Re)moved")
             removed_data_frame = determine_removed_files(comparison_data_frame, current_data_frame)
@@ -150,7 +151,7 @@ def main(args):
             write_hashes_to_file(removed_data_frame, args.output_removed_files, io_logger,
                                  disable_full_hashing=args.disable_full_hashing)
 
-        # See if we should be looking for added files based on relative path
+        # If CLI arg is set, look for added files based on relative path
         if args.output_added_files is not None:
             executor_logger.info("Finding files in the comparison_data_frame that have been Added")
             added_data_frame = determine_removed_files(current_data_frame, comparison_data_frame)
@@ -159,7 +160,7 @@ def main(args):
             write_hashes_to_file(added_data_frame, args.output_added_files, io_logger,
                                  disable_full_hashing=args.disable_full_hashing)
 
-        # See if we should be looking for modified files based on relative path and hash
+        # If CLI arg is set, look for modified files based on relative path and hash
         if args.output_modified_files is not None:
             executor_logger.info("Finding files with different hashes than their Comparison DataFrame counterparts")
             modified_data_frame = determine_modified_files(comparison_data_frame, current_data_frame)

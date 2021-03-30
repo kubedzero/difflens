@@ -15,6 +15,16 @@ file_suffix=".tsv.gz"
 # Get the date, which we'll use to name our output files
 run_date=$(date '+%Y-%m-%dPT%H%M')
 
+# Check that screen and python3 are installed by defining their full paths and checking that they exist
+# This bypasses any sort of PATH snafu when running from Cron
+# https://linuxize.com/post/bash-check-if-file-exists/
+screen_path="/usr/bin/screen"
+python3_path="/usr/bin/python3"
+if [[ -z "$screen_path" || -z "$python3_path" ]]; then
+  echo "Either $screen_path or $python3_path did not exist and are required for operation. Exiting"
+  exit 1
+fi
+
 # https://stackoverflow.com/questions/169511
 for disk_num in $(seq 1 $max_disk_num); do
   # Construct the root of our output files. All outputs will share this prefix and path
@@ -58,17 +68,19 @@ for disk_num in $(seq 1 $max_disk_num); do
   --output_duplicates $output_duplicates  \
   --log_update_interval_seconds 60"
 
-  # Construct the full command used to start up diff-lens. We'll trigger this with exec
-  diff_lens_command="/usr/bin/python3 /boot/diff_lens/run.py $diff_lens_args"
+  # Construct the full command used to start up diff-lens. We'll trigger this with bash
+  diff_lens_command="$python3_path /boot/diff_lens/run.py $diff_lens_args"
   # Construct the Screen name
   screen_name="diff-lens-disk$disk_num"
 
   # Run the script in a detached screen
   # https://superuser.com/questions/454907/how-to-execute-a-command-in-screen-and-detach
   # https://fvdm.com/code/howto-write-screen-output-to-a-log-file
-  screen -L -Logfile "$log_output_dir/$run_date-$screen_name.log" -S "$screen_name" -dm bash -c "$diff_lens_command"
-  printf "Monitor logs at $log_output_dir/$run_date-$screen_name.log for Screen with name $screen_name\n\n"
+  # TODO see if passing just -Logfile is enough, leaving out -L
+  $screen_path -Logfile "$log_output_dir/$run_date-$screen_name.log" -S "$screen_name" -dm bash -c "$diff_lens_command"
+  echo -e "Monitor logs at $log_output_dir/$run_date-$screen_name.log for Screen with name $screen_name\n\n"
 done
 
 echo "Screens started for $max_disk_num diff-lens executions. Use screen -r <name> to connect."
-echo "$(screen -list)"
+# https://github.com/koalaman/shellcheck/wiki/SC2005
+$screen_path -list

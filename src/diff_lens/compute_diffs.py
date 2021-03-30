@@ -4,6 +4,7 @@ from os import path, walk
 from time import time
 
 # Used for computing the hash of a file on disk
+# https://github.com/oconnor663/blake3-py
 from blake3 import blake3
 # Used to create DataFrames
 from pandas import DataFrame
@@ -49,29 +50,26 @@ def add_or_update_dict_list(dict_to_update, dict_key, string_to_store):
     return dict_to_update
 
 
-# Compute the BLAKE3 hash and store its hexadecimal representation in a dict when provided with said dict,
-# an absolute path of a file, and its relative path (for the dict). The dict entry's key is the hash, and the value
-# is a list of relative paths sharing the same hash. Finally, return the updated dict.
-# TODO input the blake3 hasher and file so we don't re-read the first bit
-def update_full_hash_dict(dict_to_update, absolute_path, relative_path):
+# Inputs are a BLAKE3 hasher already loaded with the first N bytes of a file stream, the remaining bytes of the file
+# stream, the dict to update with the hash output, and the relative path to store in the dict. Compute the
+# hexadecimal hash by reading blocks at a time, to avoid exhausting memory. Then store it in the dict with
+# {key:full_hash, value:list_of_relative_paths} and then return the updated dict.
+def update_full_hash_dict(dict_to_update, relative_path, stream, blake3_hasher):
+    # Bytes to read in at a time, 2^20 = 1MB
+    # TODO this value was chosen out of a hat. Do performance testing to find the best value
+    read_block_size = 2 ** 20
     # Read in chunks to avoid MemoryError exceptions when the full file doesn't fit in memory
     # https://stackoverflow.com/questions/1131220
-    blake3_manager = blake3()
-    # Bytes to read in at a time, 2^20 = 1MB
-    read_block_size = 2 ** 20
-    # Open the file in read-only, binary format
-    # https://stackabuse.com/file-handling-in-python/
-    with open(absolute_path, "rb") as stream:
-        while True:
-            data = stream.read(read_block_size)
-            # Exit the while loop only when there is no more data to read
-            if not data:
-                break
-            # Update the hash with the new non-None data
-            blake3_manager.update(data)
+    while True:
+        data = stream.read(read_block_size)
+        # Exit the while loop only when there is no more data to read
+        if not data:
+            break
+        # Update the hash with the new non-None data
+        blake3_hasher.update(data)
     # Get the hexadecimal 64-character representation of the hash's final state
-    # https://github.com/oconnor663/blake3-py
-    hex_hash_string = blake3_manager.hexdigest()
+    hex_hash_string = blake3_hasher.hexdigest()
+
     # Save the hash and RELATIVE path to the dict, creating a new list if one didn't exist before
     dict_to_update = add_or_update_dict_list(dict_to_update, hex_hash_string, relative_path)
     # Return the updated dict to the caller
@@ -88,35 +86,38 @@ def update_full_hash_dict(dict_to_update, absolute_path, relative_path):
 def update_partial_dict(dict_to_update, absolute_path, relative_path, file_size_bytes, byte_count_to_hash,
                         disable_full_hashing):
     # Open the file in read-only, binary format
+    # NOTE: ALL processing occurs while the file is open, as the file stream can be passed to a helper for full hashing
     # https://stackabuse.com/file-handling-in-python/
     with open(absolute_path, "rb") as stream:
-        # Get the hexadecimal 64-character representation of the first N bytes of the file
-        # https://github.com/oconnor663/blake3-py
+        # Initialize the hasher that we'll use for partial hashing and CONTINUE using for full hashing
+        blake3_hasher = blake3()
+        # Update the hasher with the first N bytes of the file
         # NOTE: If a file is 100 bytes, f.read(100) will read the entire file.
-        hex_hash_string = blake3(stream.read(byte_count_to_hash)).hexdigest()
+        blake3_hasher.update(stream.read(byte_count_to_hash))
+        # Get the hexadecimal 64-character representation of the hash
+        hex_hash_string = blake3_hasher.hexdigest()
 
-    # Boolean on whether or not the file was smaller than the read buffer. If True, the file was read in its entirety.
-    file_fully_hashed = file_size_bytes <= byte_count_to_hash
-    # Make the dictKey a Tuple with schema (string:partial hash, bool:file_size_less_than_bytes_to_read?)
-    dict_key = (hex_hash_string, file_fully_hashed)
+        # Boolean on if the file was smaller than the read buffer. If True, the file was read in its entirety.
+        file_fully_hashed = file_size_bytes <= byte_count_to_hash
+        # Make the dictKey a Tuple with schema (string:partial hash, bool:file_size_less_than_bytes_to_read?)
+        dict_key = (hex_hash_string, file_fully_hashed)
 
-    if file_fully_hashed:
-        # If file was fully hashed, the full file was read. No further hashing necessary, store in a list at this level
-        dict_to_update = add_or_update_dict_list(dict_to_update, dict_key, relative_path)
-    else:
-        # Proceed if the caller did not indicate that full hashing should be skipped (disable_full_hashing=True)
-        if not disable_full_hashing:
-            # If false, continue by hashing the full file
-            if dict_key not in dict_to_update:
-                dict_to_update[dict_key] = update_full_hash_dict({}, absolute_path, relative_path)
-            else:
-                dict_to_update[dict_key] = update_full_hash_dict(dict_to_update[dict_key], absolute_path,
-                                                                 relative_path)
+        if file_fully_hashed:
+            # The full file was read if file_fully_hashed=True. No more hashing necessary, store in a list at this level
+            dict_to_update = add_or_update_dict_list(dict_to_update, dict_key, relative_path)
         else:
-            # Otherwise finish processing this file by adding its partial hash and name to the dict
-            dict_to_update = add_or_update_dict_list(dict_to_update, hex_hash_string, relative_path)
-    # Return the updated dict to the caller
-    return dict_to_update
+            # Proceed with hashing the full file if the caller did not indicate that full hashing should be skipped
+            if not disable_full_hashing:
+                if dict_key not in dict_to_update:
+                    dict_to_update[dict_key] = update_full_hash_dict({}, relative_path, stream, blake3_hasher)
+                else:
+                    dict_to_update[dict_key] = update_full_hash_dict(dict_to_update[dict_key], relative_path, stream,
+                                                                     blake3_hasher)
+            else:
+                # Otherwise finish processing this file by adding its partial hash and name to the dict
+                dict_to_update = add_or_update_dict_list(dict_to_update, hex_hash_string, relative_path)
+        # Return the updated dict to the caller
+        return dict_to_update
 
 
 # Entry point for hashing computation. Given a relative or absolute input path, find files it contains and determine

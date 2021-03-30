@@ -30,15 +30,16 @@ run_date=$(date '+%Y-%m-%dPT%H%M')
 screen_path="/usr/bin/screen"
 python3_path="/usr/bin/python3"
 pip3_path="/usr/bin/pip3"
-if [[ -z "$screen_path" || -z "$python3_path" || -z "pip3_path" ]]; then
+if [[ -z "$screen_path" || -z "$python3_path" || -z "$pip3_path" ]]; then
   echo "One or more of $screen_path $python3_path $pip3_path did not exist and is required for operation. Exiting"
   exit 1
 fi
 
 # Use pip3 to handle dependency install
-# https://stackoverflow.com/questions/7225900/how-can-i-install-packages-using-pip-according-to-the-requirements-txt-file-from
 # -r points to a requirements.txt
 # --no-index will ignore the package index, must also pass in --find-links
+# https://www.codegrepper.com/code-examples/shell/pip+install+from+requirements.txt
+# https://stackoverflow.com/questions/7225900/how-can-i-install-packages-using-pip-according-to-the-requirements-txt-file-from
 echo "Installing project dependencies using pip3"
 $pip3_path install -r $project_dir/requirements.txt --no-index --find-links file://$dependency_wheel_dir
 

@@ -9,7 +9,7 @@ from blake3 import blake3
 # Used to create DataFrames
 from pandas import DataFrame
 
-from .common_utils import sanitize_and_validate_directory_path
+from .commonutils import sanitize_and_validate_directory_path
 
 
 # Helper to log the progress made during hashing

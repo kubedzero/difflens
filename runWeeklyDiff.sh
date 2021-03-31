@@ -4,24 +4,22 @@ set -euo pipefail
 
 # Script to assist with running multiple difflens executions in parallel
 
-# Set the max disk number to check. We expect disks will be numbered 1,2,etc. up to max_disk_num
+# Set the max disk number to check. Disks should be numbered 1,2,...,max_disk_num
 max_disk_num=3
 
-# Set the directory where we'll store the output files. No trailing slash
+# Set the directory where difflens will write its output files. No trailing slash
 output_dir="/boot/logs"
 # Set the suffix of our output files
 file_suffix=".tsv.gz"
 
-# Set the directory where we'll output logs. No trailing slash
+# Set the directory where screen will output logs. No trailing slash
 # NOTE: not setting to /boot to avoid unnecessary writes
 log_output_dir="/tmp"
 
-# Set the directory where our .py and requirements.txt files live. No trailing slash
-project_dir="/boot/python/difflens"
-# Set the directory where we store dependency Wheel files
+# Set the directory where dependency Wheel files are stored
 dependency_wheel_dir="/boot/python/package_wheels"
 
-# Get the date, which we'll use to name our output files
+# Get the date, which is used to name the output and log files
 run_date=$(date '+%Y-%m-%dPT%H%M')
 
 # Check that dependencies are installed by defining their full paths and checking that they exist
@@ -35,32 +33,34 @@ if [[ -z "$screen_path" || -z "$python3_path" || -z "$pip3_path" ]]; then
     exit 1
 fi
 
-# Use pip3 to handle dependency install
-# -r points to a requirements.txt
+# Use pip3 to install from a wheel file created from the project's Python source
 # --no-index will ignore the package index, must also pass in --find-links
 # https://www.codegrepper.com/code-examples/shell/pip+install+from+requirements.txt
 # https://stackoverflow.com/questions/7225900/how-can-i-install-packages-using-pip-according-to-the-requirements-txt-file-from
-echo "Installing project dependencies using pip3"
-$pip3_path install -r $project_dir/requirements.txt --no-index --find-links file://$dependency_wheel_dir
+echo "Installing project and dependencies using pip3"
+$pip3_path install $dependency_wheel_dir/difflens* --no-index --find-links file://$dependency_wheel_dir
+
+# Set the executable that pip3 creates for us when installing
+difflens_wrapper="/usr/bin/difflens"
 
 echo "Assembling input arguments and starting screens for each disk"
 # https://stackoverflow.com/questions/169511
 for disk_num in $(seq 1 $max_disk_num); do
     # Construct the root of our output files. All outputs will share this prefix and path
     output_file_root="$output_dir/$run_date-disk$disk_num"
-    # Construct the path where we'll store the full scan's hash list
+    # Construct the path where the full scan's hash list is stored
     output_hash_file="$output_file_root-hashes$file_suffix"
-    # Construct the path where we'll store the removed files list
+    # Construct the path where the removed files list is stored
     output_removed_files="$output_file_root-removed$file_suffix"
-    # Construct the path where we'll store the added files list
+    # Construct the path where the added files list is stored
     output_added_files="$output_file_root-added$file_suffix"
-    # Construct the path where we'll store the modified files list
+    # Construct the path where the modified files list is stored
     output_modified_files="$output_file_root-modified$file_suffix"
-    # Construct the path where we'll store the duplicate files list
+    # Construct the path where the duplicate files list is stored
     output_duplicates="$output_file_root-duplicates$file_suffix"
 
     # Find the previous hash to diff against.
-    # Since we prefix the filenames with date, we can sort and get the last line to find the most recent file
+    # Filenames are prefixed with date, so can sort and get the last line to find the most recent file
     # https://www.geeksforgeeks.org/mindepth-maxdepth-linux-find-command-limiting-search-specific-directory/
     # https://superuser.com/questions/294161/unix-linux-find-and-sort-by-date-modified
     # https://www.cyberciti.biz/faq/search-for-files-in-bash/
@@ -71,9 +71,10 @@ for disk_num in $(seq 1 $max_disk_num); do
     # If the previous file did not exist, make a stand-in path instead of an empty string
     # https://www.cyberciti.biz/faq/unix-linux-bash-script-check-if-variable-is-empty/
     [[ -z "$previous_hash_file" ]] && previous_hash_file="no_such_file"
-    echo "Previous hash file we'll compare disk$disk_num against is $previous_hash_file"
+    echo "The files on disk$disk_num will be compared against $previous_hash_file"
 
-    # Construct the path to the disk, which we use as the working directory
+    # Construct the path to the disk, which is used as the working directory.
+    # This sets up the relative path stored in the output files
     cd "/mnt/disk$disk_num"
 
     # Construct the list of input arguments
@@ -87,8 +88,8 @@ for disk_num in $(seq 1 $max_disk_num); do
   --output-duplicates $output_duplicates  \
   --log-update-interval-seconds 60"
 
-    # Construct the full command used to start up difflens. We'll trigger this with bash
-    difflens_command="$python3_path $project_dir/run.py $difflens_args"
+    # Construct the full command used to start up difflens. Screen will trigger bash which will use this string
+    difflens_command="$difflens_wrapper $difflens_args"
     # Construct the screen session name
     screen_name="difflens-disk$disk_num"
 

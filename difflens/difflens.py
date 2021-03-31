@@ -24,37 +24,37 @@ def configure_argument_parser():
     # Initialize a group to force either-or argument behavior
     # https://stackoverflow.com/questions/11154946/
     arg_group = parser.add_mutually_exclusive_group(required=True)
-    arg_group.add_argument("--scan_directory", "-s", help="Path in which to look for files", type=str)
-    arg_group.add_argument("--input_hash_file", "-i",
+    arg_group.add_argument("--scan-directory", "-s", help="Path in which to look for files", type=str)
+    arg_group.add_argument("--input-hash-file", "-i",
                            help="Input file for new hash values if live directory scanning should be skipped",
                            type=str)
     # Define arguments where a string is expected
-    parser.add_argument("--comparison_hash_file", "-c", help="Path to delimited file containing old hash values",
+    parser.add_argument("--comparison-hash-file", "-c", help="Path to delimited file containing old hash values",
                         type=str)
-    parser.add_argument("--output_hash_file", "-o", help="Output file for newly computed hash values", type=str)
-    parser.add_argument("--output_removed_files", "-r", help="Output file listing files that have been removed",
+    parser.add_argument("--output-hash-file", "-o", help="Output file for newly computed hash values", type=str)
+    parser.add_argument("--output-removed-files", "-r", help="Output file listing files that have been removed",
                         type=str)
-    parser.add_argument("--output_added_files", "-a", help="Output file listing files that have been added", type=str)
-    parser.add_argument("--output_modified_files", "-m", help="Output file listing files that have been modified",
+    parser.add_argument("--output-added-files", "-a", help="Output file listing files that have been added", type=str)
+    parser.add_argument("--output-modified-files", "-m", help="Output file listing files that have been modified",
                         type=str)
-    parser.add_argument("--output_duplicates", "-d", help="Output file listing files that contain matching data",
+    parser.add_argument("--output-duplicates", "-d", help="Output file listing files that contain matching data",
                         type=str)
 
     # Define argument where a specific list of strings are allowed
     # https://stackoverflow.com/questions/15836713
-    parser.add_argument("--log_level", "-l", help="Set log level",
+    parser.add_argument("--log-level", "-l", help="Set log level",
                         choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"], type=str, default="INFO")
 
     # Define arguments where an int is expected
-    parser.add_argument("--log_update_interval_seconds", "-t",
+    parser.add_argument("--log-update-interval-seconds", "-t",
                         help="Target interval in seconds between log updates when hashing", type=int, default=30)
-    parser.add_argument("--log_update_interval_files", "-x", help="Target interval of files hashed between log updates",
+    parser.add_argument("--log-update-interval-files", "-x", help="Target interval of files hashed between log updates",
                         type=int, default=10000)
 
     # Define arguments where presence/absence indicates a Boolean. Interprets as true if passed in, false otherwise
-    parser.add_argument("--disable_all_hashing", "-p", help="Skip all hashing, comparing on file size alone",
+    parser.add_argument("--disable-all-hashing", "-p", help="Skip all hashing, comparing on file size alone",
                         action="store_true")
-    parser.add_argument("--disable_full_hashing", "-f", help="Skip full hashing, comparing on only partial hashing",
+    parser.add_argument("--disable-full-hashing", "-f", help="Skip full hashing, comparing on only partial hashing",
                         action="store_true")
     return parser
 

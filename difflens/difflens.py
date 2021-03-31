@@ -9,10 +9,10 @@ from sys import argv
 # Used to get memory information
 from psutil import Process
 
-from util.comparefiles import determine_duplicate_files, determine_modified_files, determine_removed_files
-from util.computediffs import compute_diffs, flatten_dict_to_data_frame
-from util.hashfileio import write_hashes_to_file, read_hashes_from_file
-from util.log_helper import get_logger_with_name
+from .util.comparefiles import determine_duplicate_files, determine_modified_files, determine_removed_files
+from .util.computediffs import compute_diffs, flatten_dict_to_data_frame
+from .util.hashfileio import write_hashes_to_file, read_hashes_from_file
+from .util.log_helper import get_logger_with_name
 
 
 # Set up the argparse object that defines and handles program input arguments

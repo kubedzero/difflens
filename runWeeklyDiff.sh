@@ -17,7 +17,7 @@ file_suffix=".tsv.gz"
 log_output_dir="/tmp"
 
 # Set the directory where dependency Wheel files are stored
-dependency_wheel_dir="/boot/python/package_wheels"
+dependency_wheel_dir="/boot/python_wheels"
 
 # Get the date, which is used to name the output and log files
 run_date=$(date '+%Y-%m-%dPT%H%M')
@@ -79,7 +79,7 @@ for disk_num in $(seq 1 $max_disk_num); do
 
     # Construct the list of input arguments
     # https://stackoverflow.com/questions/46807924/bash-split-long-string-argument-to-multiple-lines
-    difflens_args="--scan_directory . \
+    difflens_args="--scan-directory . \
   --output-hash-file $output_hash_file \
   --comparison-hash-file $previous_hash_file \
   --output-removed-files $output_removed_files \

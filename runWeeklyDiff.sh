@@ -2,7 +2,7 @@
 # https://vaneyckt.io/posts/safer_bash_scripts_with_set_euxo_pipefail/
 set -euo pipefail
 
-# Script to assist with running multiple diff-lens executions in parallel
+# Script to assist with running multiple difflens executions in parallel
 
 # Set the max disk number to check. We expect disks will be numbered 1,2,etc. up to max_disk_num
 max_disk_num=3
@@ -17,7 +17,7 @@ file_suffix=".tsv.gz"
 log_output_dir="/tmp"
 
 # Set the directory where our .py and requirements.txt files live. No trailing slash
-project_dir="/boot/python/diff_lens"
+project_dir="/boot/python/difflens"
 # Set the directory where we store dependency Wheel files
 dependency_wheel_dir="/boot/python/package_wheels"
 
@@ -78,28 +78,28 @@ for disk_num in $(seq 1 $max_disk_num); do
 
     # Construct the list of input arguments
     # https://stackoverflow.com/questions/46807924/bash-split-long-string-argument-to-multiple-lines
-    diff_lens_args="--scan_directory . \
-  --output_hash_file $output_hash_file \
-  --comparison_hash_file $previous_hash_file \
-  --output_removed_files $output_removed_files \
-  --output_added_files $output_added_files \
-  --output_modified_files $output_modified_files \
-  --output_duplicates $output_duplicates  \
-  --log_update_interval_seconds 60"
+    difflens_args="--scan_directory . \
+  --output-hash-file $output_hash_file \
+  --comparison-hash-file $previous_hash_file \
+  --output-removed-files $output_removed_files \
+  --output-added-files $output_added_files \
+  --output-modified-files $output_modified_files \
+  --output-duplicates $output_duplicates  \
+  --log-update-interval-seconds 60"
 
-    # Construct the full command used to start up diff-lens. We'll trigger this with bash
-    diff_lens_command="$python3_path $project_dir/run.py $diff_lens_args"
+    # Construct the full command used to start up difflens. We'll trigger this with bash
+    difflens_command="$python3_path $project_dir/run.py $difflens_args"
     # Construct the screen session name
-    screen_name="diff-lens-disk$disk_num"
+    screen_name="difflens-disk$disk_num"
 
     # Run the script in a detached screen session
     # -L required to enable logs. -Logfile to specify where. -S to name the session. -dm <cmd> to run <cmd> in screen
     # https://superuser.com/questions/454907/how-to-execute-a-command-in-screen-and-detach
     # https://fvdm.com/code/howto-write-screen-output-to-a-log-file
-    $screen_path -L -Logfile "$log_output_dir/$run_date-$screen_name.log" -S "$screen_name" -dm bash -c "$diff_lens_command"
+    $screen_path -L -Logfile "$log_output_dir/$run_date-$screen_name.log" -S "$screen_name" -dm bash -c "$difflens_command"
     echo -e "Monitor logs at $log_output_dir/$run_date-$screen_name.log for Screen with name $screen_name\n\n"
 done
 
-echo "Screens started for $max_disk_num diff-lens executions. Use screen -r <name> to connect."
+echo "Screens started for $max_disk_num difflens executions. Use screen -r <name> to connect."
 # https://github.com/koalaman/shellcheck/wiki/SC2005
 $screen_path -list

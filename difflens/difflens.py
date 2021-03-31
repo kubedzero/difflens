@@ -70,7 +70,7 @@ def main(args):
     executor_logger = get_logger_with_name("Executor", args.log_level)
     io_logger = get_logger_with_name("IO", args.log_level)
 
-    executor_logger.warning("Starting diff-lens from current working directory {}".format(getcwd()))
+    executor_logger.warning("Starting difflens from current working directory {}".format(getcwd()))
 
     # If the scan directory was given and not the input hash file, try to scan
     if args.scan_directory is not None and args.input_hash_file is None:
@@ -172,7 +172,7 @@ def main(args):
         if args.output_removed_files is not None or args.output_added_files is not None or args.output_modified_files is not None:
             executor_logger.warning(
                 "Skipping any Added, Removed, or Modified analysis as no comparison_hash_file was passed in")
-    executor_logger.warning("Shutting down diff-lens")
+    executor_logger.warning("Shutting down difflens")
     exit(0)
 
 

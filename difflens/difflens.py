@@ -60,7 +60,7 @@ def configure_argument_parser():
 
 
 # NOTE: PyCharm may think args is not used, but parser.parse_args() needs it here
-def main(args):
+def main():
     # Set up the argparse object that defines and handles program input arguments
     parser = configure_argument_parser()
     args = parser.parse_args()
@@ -179,4 +179,4 @@ def main(args):
 # https://stackoverflow.com/questions/419163
 # Call main(sys.argv[1:]) this file is run. Pass the arg array from element 1 onwards to exclude the program name arg
 if __name__ == "__main__":
-    main(argv[1:])
+    main()

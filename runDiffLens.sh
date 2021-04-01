@@ -91,7 +91,7 @@ for disk_num in $(seq 1 $max_disk_num); do
     # Construct the full command used to start up difflens. Screen will trigger bash which will use this string
     difflens_command="$difflens_wrapper $difflens_args"
     # Construct the screen session name
-    screen_name="difflens-disk$disk_num"
+    screen_name="disk$disk_num-difflens"
 
     # Run the script in a detached screen session
     # -L required to enable logs. -Logfile to specify where. -S to name the session. -dm <cmd> to run <cmd> in screen

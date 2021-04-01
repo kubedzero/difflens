@@ -3,8 +3,6 @@
 import argparse
 # Used for printing the Python working directory
 from os import getcwd, getpid
-# Used for getting the list of arguments with which the program was called
-from sys import argv
 
 # Used to get memory information
 from psutil import Process

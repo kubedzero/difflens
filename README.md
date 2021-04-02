@@ -21,6 +21,8 @@ Inspiration for DiffLens came from Bergware's [File Integrity](https://github.co
 
 With this "replace File Integrity" mentality, a Bash script named `runDiffLens.sh` was written and included in this repository. Now, `difflens` is already configured in the `setup.py` to provide a console entry point. This means installation of DiffLens via Pip also adds `difflens` to the PATH by placing a wrapper in a directory such as `/usr/bin`. RunDiffLens acts as an orchestrator around difflens, providing argument population, concurrent executions for each disk in Unraid, and background processing via `screen`. Furthermore, since Unraid operates similar to a Live CD where it loads OS archives off a USB disk and then executes from memory, the OS is created from scratch at each power cycle. Python, Pip, and any customizations are wiped at each reboot and must be reinstalled by Unraid plugins, the `/boot/config/go` file, or by other means. Since `difflens` is never guaranteed to be installed right away, RunDiffLens provides offline installation of `difflens` plus its dependencies via `pip3`'s `--no-index --find-links` feature. Assuming a user has previously used `pip3 download` to save `.whl` wheel files of the necessary dependencies of DiffLens plus the `.whl` for DiffLens itself, RunDiffLens can install and execute `difflens` in a self-contained manner. Then by writing a daily, weekly, or monthly Cron job pointed at RunDiffLens, scheduled scans of the Unraid array can occur. 
 
+TODO add notes on cron
+
 ## Performance
 
 An example of a DiffLens execution's logging can be found below. It can be observed that DiffLens averaged almost 160 megabytes per second of hashing speed over a 17 hour period while processing 125,000 files and 10TB. Other executions on HDDs have had up to 200MBps sustained read speeds, and executions on NVMe SSDs have had 600MBps. 
@@ -49,8 +51,53 @@ In terms of memory usage, DiffLens hashes files by reading 1MB at a time from di
 2021-03-30T14:50:22-0700[WARNING][Executor]: Shutting down diff-lens
 ```
 
-
 ## Development
+
+### IDE, Environment, and Building
+
+macOS Big Sur 11.2.3 was the host operating system used to develop DiffLens
+
+- `xcode-select --install` was used to ensure the Xcode command line tools were installed and up to date. This gets `python3` and `pip3`  installed in the macOS system-owned `/usr/bin` alongside other dependencies used later.
+- At this stage, the PATH should have no other copies of Python or Pip. 
+  - This can be validated with `which -a python pip python3 pip3` 
+  - The PATH itself can be inspected with `echo $PATH` and at this stage should look something similar to `/usr/local/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin`. 
+  - This is mentioned because there had previously been manually-installed Python, macOS installed Python, and easy_install installed Python, all of which were cluttering the PATH. 
+- [Homebrew](https://docs.brew.sh/Installation) was used as the base package manager. 
+  - `brew install python@3.9` was coincidentally installed to `/usr/local/bin/python3` for other Homebrew formulae, but the goal should be to avoid using this, as a more favored approach will be introduced next.
+- [Pyenv](https://github.com/pyenv/pyenv) is the recommended method of managing multiple Python installs, and can be installed with `brew install pyenv`.  
+  - Once installed, `pyenv install --list` can display all the installable versions of Python. 
+  - Proceed with `pyenv install 3.9.2` which was the latest as of writing. 
+  - Then `pyenv rehash` and `pyenv global 3.9.2` to rehash the shim and set 3.9.2 to the global default. 
+  - Finally, following https://github.com/pyenv/pyenv#installation, `pyenv init` needs to be added to the PATH printout by adjusting the ZSH config with `echo -e 'if command -v pyenv 1>/dev/null 2>&1; then\n  eval "$(pyenv init -)"\nfi' >> ~/.zshrc`. 
+  - Then a reload of the shell with `exec "$SHELL"` will apply the changes. 
+  - After this step, running `echo $PATH` should show pyenv present at the front of the PATH: `/Users/kz/.pyenv/shims:/usr/local/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin` This allows any calls to `python3` or `pip3` or `pipenv` to  be intercepted by Pyenv before the brew- or system-installed versions can be used. 
+  - `which -a python pip python3 pip3` can again be run at this step, but this time should print out lines such as `/Users/kz/.pyenv/shims/python3` that indicate Pyenv's shim is working as expected.
+  - Now, any calls to `pip3` or `python3` in the shell will use the Pyenv shim versions at `/Users/kz/.pyenv/shims/python3` and `/Users/kz/.pyenv/shims/pip3`
+- [Pipenv](https://github.com/pypa/pipenv) is next on the install list, but will be installed with Pip instead of Homebrew: `pip3 install pipenv`
+  - Running `which -a pipenv` should show a copy under Pyenv `/Users/kz/.pyenv/shims/pipenv` but no others, as the Pyenv-owned `pip3` should have installed it. 
+  - https://realpython.com/pipenv-guide/ goes into detail on why this is needed, but the gist of it is that it allows isolated sets of Pip packages to be related to a single project, rather than all projects sharing the system's single Pip install and interfering with one another's dependencies. 
+  - This will be discussed more later on, but Pipenv enables the replacement of a project's `requirements.txt` with the more-powerful `Pipfile` and `Pipfile.lock`
+  - https://pipenv-fork.readthedocs.io/en/latest/basics.html has a good description of the common commands
+- It seems that Pipenv under the hood uses a Python module called `maturin` which may in turn use `cargo`, the package manager for the [Rust](https://www.rust-lang.org) language. 
+  - When Rust was not installed, an error was experienced when trying to run `pipenv install <package>`. Specifically, the `pipenv` STDOUT stalls on `Locking...` and then outputs a stack trace with `Could not build wheels for maturin which use PEP 517 and cannot be installed directly` and `cargo not found in PATH. Please install rust (https://www.rust-lang.org/tools/install) and try again`
+  - For this reason, Rust can be installed via Homebrew with `brew install rustup`, which installs utilities `rustc`, `cargo`, and `rustup-init`. 
+  - https://sourabhbajaj.com/mac-setup/Rust/ provided instructions for the process
+  - Run `rustup-init` to add `rustc` and `cargo` to the PATH by editing `.zshenv` and `.profile` or another shell's config. `source "$HOME/.cargo/env"` appears to have been added to both. 
+  - Run `exec "$SHELL"` to reload the shell with the new PATH (or open a new terminal window)
+  - Then `which -a cargo` results in `/Users/kz/.cargo/bin/cargo`
+- General Pipenv CLI usage
+  - Pipenv's purpose is to allow each directory/project containing Python code to have a disjoint set of installed Pip dependencies. Furthermore, it creates `Pipfile` and `Pipfile.lock` files in the directory/project to describe the state of Pip for that project.
+  - This allows for conflicting versions across different projects to be installed simultaneously, and also allows for concrete dependency resolution to ensure that a new instance of the project can reinstall the exact same dependency state as the original
+  - `pipenv shell` when executed in a project directory will look for a virtual environment already associated with the directory. 
+    - If a virtual env does not exist, it will create a new one, possibly in `/Users/kz/.local/share/virtualenvs/`. It will then drop the caller into the pipenv shell. NOTE: PyCharm's UI can also create a virtual environment, so that was used for initialization rather than running `pipenv shell` first
+    - This shell updates the PATH to start with the virtual environment copies of `python3` and `pip`, isolating any changes to this particular project. Note that `which -a pipenv` will still show the original install location of `/Users/kz/.pyenv/shims/pipenv` so being in the shell versus not doesn't matter to `pipenv`. 
+    - `exit` will exit out of the Pipenv shell and return the caller to the normal shell with the system-shared `pip3` and `python3`
+  - `pipenv --rm` will delete the virtual environment, which could be good for starting from scratch
+  - To add a package to a project such that it is declared in the `Pipfile`, run `pipenv install <somePackage>` either from inside or outside the Pipenv shell. It will install it into the virtual env's `pip3` and then add the package into the Pipfile. NOTE: This command is known to hang for a long time and consume many system resources, including high CPU and lots of network/download.
+  - To undo a package installation, `pipenv uninstall <somePackage` will remove it from the `Pipfile` and uninstall it from `pip3`. If `pip3 uninstall somePackage` was run, the `Pipfile` would remain unchanged and Pipenv would still reinstall it. 
+  - To generate/update the `Pipfile.lock` that tracks the exact dependency versions of the declared packages and all their transitive dependencies, run `pipenv lock` 
+  - In a freshly created virtual environment, `pipenv sync` can be run to load all the dependencies from the `Pipfile.lock` into `pip3`. `pipenv install` will also work, but may install package versions not defined in the lock file. In other words, `pipenv sync` will perfectly recreate the environment, while `pipenv install` could install different package versions.
+- JetBrains PyCharm 2020.3 was the IDE used to develop DiffLens
 
 
 ### TODO

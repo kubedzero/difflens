@@ -24,7 +24,7 @@ setuptools.setup(
         "Operating System :: OS Independent"
     ],
     # https://packaging.python.org/guides/distributing-packages-using-setuptools/#entry-points
-    entry_points={"console_scripts": ["difflens = difflens.difflens:main"]},
+    entry_points={"console_scripts": ["difflens = difflens.entry:main"]},
     # https://packaging.python.org/guides/distributing-packages-using-setuptools/#install-requires
     # NOTE: The Pipfile is for setting up the build/dev env while install_requires tells Pip what dependencies
     # are also needed when installing this .whl from a package index

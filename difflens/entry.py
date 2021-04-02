@@ -7,10 +7,10 @@ from os import getcwd, getpid
 # Used to get memory information
 from psutil import Process
 
-from .util.comparefiles import determine_duplicate_files, determine_modified_files, determine_removed_files
-from .util.computediffs import compute_diffs, flatten_dict_to_data_frame
-from .util.hashfileio import write_hashes_to_file, read_hashes_from_file
-from .util.log_helper import get_logger_with_name
+from difflens.util.comparefiles import determine_duplicate_files, determine_modified_files, determine_removed_files
+from difflens.util.computediffs import compute_diffs, flatten_dict_to_data_frame
+from difflens.util.hashfileio import write_hashes_to_file, read_hashes_from_file
+from difflens.util.log_helper import get_logger_with_name
 
 
 # Set up the argparse object that defines and handles program input arguments
@@ -174,5 +174,9 @@ def main():
     exit(0)
 
 
+# Used for running via package access, aka python difflens/entry.py
+# However, if the imports are absolute (from difflens.util.whatever)
+# it may break since it will see difflens as a module, not a package
+# However, when running inside PyCharm it doesn't seem to have this issue, and instead it works fine
 if __name__ == "__main__":
     main()

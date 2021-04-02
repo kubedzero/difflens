@@ -106,6 +106,7 @@ macOS Big Sur 11.2.3 was the host operating system used to develop DiffLens
   - The Terminal tab in PyCharm may automatically drop into the `pipenv shell` mode, which can be seen when running `which -a pip3` and getting a virtual environment first on the list, rather than the system-wide `/Users/kz/.pyenv/shims/pip3`. If it doesn't, `pipenv shell` can be run and a message similar to `Pipenv found itself running within a virtual environment, so it will automatically use that environment, instead of creating its own for any project.` may be seen
 - Building
   - There have sometimes been issues with relative imports being picked up correctly when running on macOS
+  - `pip3 install build` to install the build tools in the virtual env without adding them to the Pipfile
 
 
 ### TODO

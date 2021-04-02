@@ -174,7 +174,5 @@ def main():
     exit(0)
 
 
-# https://stackoverflow.com/questions/419163
-# Call main(sys.argv[1:]) this file is run. Pass the arg array from element 1 onwards to exclude the program name arg
 if __name__ == "__main__":
     main()

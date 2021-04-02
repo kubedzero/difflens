@@ -86,8 +86,9 @@ macOS Big Sur 11.2.3 was the host operating system used to develop DiffLens
   - Run `exec "$SHELL"` to reload the shell with the new PATH (or open a new terminal window)
   - Then `which -a cargo` results in `/Users/kz/.cargo/bin/cargo`
 - General Pipenv CLI usage
-  - Pipenv's purpose is to allow each directory/project containing Python code to have a disjoint set of installed Pip dependencies. Furthermore, it creates `Pipfile` and `Pipfile.lock` files in the directory/project to describe the state of Pip for that project.
-  - This allows for conflicting versions across different projects to be installed simultaneously, and also allows for concrete dependency resolution to ensure that a new instance of the project can reinstall the exact same dependency state as the original
+  - Pipenv's purpose is to allow each directory/project containing Python code to have a disjoint set of installed Pip dependencies. Furthermore, it creates `Pipfile` and `Pipfile.lock` files in the directory/project to describe the state of Pip for that project. 
+  - This allows for conflicting versions across different projects to be installed simultaneously, and also allows for concrete dependency resolution to ensure that a new instance of the project can reinstall the exact same dependency state as the original. 
+  - https://realpython.com/pipenv-guide/ goes into more detail about the purpose of Pipenv, as does https://pipenv-fork.readthedocs.io/en/latest/basics.html 
   - `pipenv shell` when executed in a project directory will look for a virtual environment already associated with the directory. 
     - If a virtual env does not exist, it will create a new one, possibly in `/Users/kz/.local/share/virtualenvs/`. It will then drop the caller into the pipenv shell. NOTE: PyCharm's UI can also create a virtual environment, so that was used for initialization rather than running `pipenv shell` first
     - This shell updates the PATH to start with the virtual environment copies of `python3` and `pip`, isolating any changes to this particular project. Note that `which -a pipenv` will still show the original install location of `/Users/kz/.pyenv/shims/pipenv` so being in the shell versus not doesn't matter to `pipenv`. 
@@ -96,8 +97,15 @@ macOS Big Sur 11.2.3 was the host operating system used to develop DiffLens
   - To add a package to a project such that it is declared in the `Pipfile`, run `pipenv install <somePackage>` either from inside or outside the Pipenv shell. It will install it into the virtual env's `pip3` and then add the package into the Pipfile. NOTE: This command is known to hang for a long time and consume many system resources, including high CPU and lots of network/download.
   - To undo a package installation, `pipenv uninstall <somePackage` will remove it from the `Pipfile` and uninstall it from `pip3`. If `pip3 uninstall somePackage` was run, the `Pipfile` would remain unchanged and Pipenv would still reinstall it. 
   - To generate/update the `Pipfile.lock` that tracks the exact dependency versions of the declared packages and all their transitive dependencies, run `pipenv lock` 
-  - In a freshly created virtual environment, `pipenv sync` can be run to load all the dependencies from the `Pipfile.lock` into `pip3`. `pipenv install` will also work, but may install package versions not defined in the lock file. In other words, `pipenv sync` will perfectly recreate the environment, while `pipenv install` could install different package versions.
-- JetBrains PyCharm 2020.3 was the IDE used to develop DiffLens
+  - In a freshly created virtual environment, `pipenv sync` can be run to load all the dependencies from the `Pipfile.lock` into `pip3`. `pipenv install` will also work, but may install package versions not defined in the lock file. In other words, `pipenv sync` will perfectly recreate the environment, while `pipenv install` could install different package versions. In the old style before Pipenv with a single `requirements.txt`, the closest a user could get to replicating a build environment was re-downloading the top-level package versions defined, rather than the entire dependency graph.
+- [JetBrains PyCharm](https://www.jetbrains.com/pycharm/) 2020.3 was the IDE used to develop DiffLens
+  - The Python Interpreter is the first thing to set up. PyCharm may offer to "create a pipenv from a Pipfile" when it discovers that no interpreter is set up for the project. If selected, it should grab the already-created Pipfile and configure the whole Pipenv with no further action.
+  - To set up a Python Interpreter manually, open the Preferences and then go to Project > Python Interpreter > Gear > Show All and then click the plus button. Instead of a Virtualenv Environment, choose PipEnv Environment. Ensure the Base Interpreter is pulling from Pyenv's copy of Python3, namely `/Users/kz/.pyenv/shims/python3`, and that the Pipenv Executable is similarly pulling `/Users/kz/.pyenv/shims/pipenv`. It's fine to also check the "Install packages from Pipfile" as that saves a step of manually syncing the Pipenv. 
+  - There should be no need to mark the `./difflens` or `./difflens/util` directories as source files, because they should be picked up by default as Namespace Packages due to the presence of `__init__.py` files in each.
+  - 
+  - The Terminal tab in PyCharm may automatically drop into the `pipenv shell` mode, which can be seen when running `which -a pip3` and getting a virtual environment first on the list, rather than the system-wide `/Users/kz/.pyenv/shims/pip3`. If it doesn't, `pipenv shell` can be run and a message similar to `Pipenv found itself running within a virtual environment, so it will automatically use that environment, instead of creating its own for any project.` may be seen
+- Building
+  - There have sometimes been issues with relative imports being picked up correctly when running on macOS
 
 
 ### TODO

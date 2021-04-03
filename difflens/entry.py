@@ -7,6 +7,26 @@ from os import getcwd, getpid
 # Used to get memory information
 from psutil import Process
 
+# Different import styles yield different errors in different environments:
+# (1) ImportError: attempted relative import with no known parent package
+# (2) ModuleNotFoundError: No module named 'difflens'
+# (3) ModuleNotFoundError: No module named 'util'
+# NOTE: From CLI, running module-style `python3 -m difflens.entry` (or `python3 -m difflens` when __main__.py exists):
+# - WILL WORK when imports are relative, i.e. `from .util.xyz`
+# - WILL WORK when imports are absolute, i.e. `from difflens.util.xyz`
+# - WILL NOT WORK when imports are (partial?) absolute, i.e. `from util.xyz` (3)
+# NOTE: From CLI, running file-style `python3 difflens/entry.py`:
+# - WILL NOT WORK when imports are relative, i.e. `from .util.xyz` (1)
+# - WILL NOT WORK when imports are absolute, i.e. `from difflens.util.xyz` (2)
+# - WILL NOT WORK when imports are (partial?) absolute, i.e. `from util.xyz` (2)
+# NOTE: From PyCharm, running this module's `main()` function at the bottom:
+# - WILL NOT WORK when imports are relative, i.e. `from .util.xyz` (1). Fix by changing Run Config to module
+# - WILL WORK when imports are absolute, i.e. `from difflens.util.xyz`
+# - WILL WORK when imports are (partial?) absolute, i.e. `from util.xyz`
+# NOTE: From `pip3 install difflens.whl && difflens` on Linux:
+# - WILL WORK when imports are relative, i.e. `from .util.xyz`
+# - WILL WORK when imports are absolute, i.e. `from difflens.util.xyz`
+# - WILL NOT WORK when imports are (partial?) absolute, i.e. `from util.xyz` (3)
 from difflens.util.comparefiles import determine_duplicate_files, determine_modified_files, determine_removed_files
 from difflens.util.computediffs import compute_diffs, flatten_dict_to_data_frame
 from difflens.util.hashfileio import write_hashes_to_file, read_hashes_from_file

@@ -39,7 +39,7 @@ def determine_modified_files(original_data_frame, comparison_data_frame):
 
 # Return a list of files sharing a duplicate field (hash or size) with at least one other file having a different path
 # TODO enforce file_size as an input, so the amount of space all duplicates take vs deduped space can be calculated
-def determine_duplicate_files(data_frame, duplicate_field):
+def determine_duplicate_files(data_frame, duplicate_field, output_schema):
     # Create a Series containing all the unique values in the hash field, and the count of each
     # https://stackoverflow.com/questions/48628417
     # https://pandas.pydata.org/docs/reference/api/pandas.Series.value_counts.html
@@ -50,5 +50,5 @@ def determine_duplicate_files(data_frame, duplicate_field):
     filtered_data_frame = data_frame[
         data_frame[duplicate_field].isin(multiple_occurrence_hashes)]
     # Reduce the data_frame to only the fields returned by this: hash and filename
-    reduced_data_frame = filtered_data_frame[[duplicate_field, "relative_path"]]
+    reduced_data_frame = filtered_data_frame[output_schema]
     return reduced_data_frame

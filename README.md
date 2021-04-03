@@ -181,3 +181,6 @@ There is still plenty of room to grow. Among the many directions DiffLens could 
   - Homebrew recommended running ``sudo rm -rf /Library/Developer/CommandLineTools` and then allowing it to reinstall just to make sure it was up to date
   - https://stackoverflow.com/questions/22051158/how-to-fully-uninstall-pip-installed-with-easy-install/22053391 helped with uninstalling the Pip that got installed via the macOS `easy_install` utility
   - https://github.com/pyenv/pyenv#installation helped with installing Pyenv, namely that running `echo -e 'if command -v pyenv 1>/dev/null 2>&1; then\n  eval "$(pyenv init -)"\nfi' >> ~/.zshrc` was necessary to update the shell to reference Pyenv's shim folder
+- https://stackoverflow.com/questions/3765234/listing-and-deleting-git-commits-that-are-under-no-branch-dangling getting rid of commits that are not in any branch
+  - Useful when searching `git grep someSearch $(git rev-list --all) ` to try and find string occurrences that now only exist in no-longer-referenced commit IDs. NOTE that the command can be updated to `git grep someSearch $(git rev-list HEAD)` to only search in commits in the HEAD branch. 
+  - `git stash clear && git reflog expire --expire-unreachable=now --all && git fsck --unreachable && git gc --prune=now` can clean things up

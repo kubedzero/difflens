@@ -2,7 +2,7 @@
 from csv import QUOTE_NONNUMERIC
 
 # Used to read tabular data from a file on disk
-from pandas import read_csv
+from pandas import read_csv, concat
 
 from difflens.util.commonutils import sanitize_and_validate_file_path
 
@@ -38,18 +38,24 @@ def update_data_frame_hash_column_name(data_frame, disable_full_hashing, logger,
             raise ValueError(message)
 
 
-def read_hashes_from_file(input_path, logger, disable_full_hashing):
-    # Pandas can handle relative paths, but handle relative->absolute conversion here so extra info can print
-    input_path = sanitize_and_validate_file_path(input_path, logger)
-    # Use pandas to read a TSV file and parse it into a dataFrame
-    # https://pandas.pydata.org/docs/reference/api/pandas.read_csv.html
-    # Use tabs as separators
-    # Don't allow double-quotes inside fields without escaping
-    # Use a backslash \ character to escape separators or double quotes inside fields
-    # Don't read the first field in each row as the row index
-    data_frame = read_csv(input_path, sep="\t", doublequote=False, escapechar="\\", index_col=False)
-    update_data_frame_hash_column_name(data_frame, disable_full_hashing, logger, prepare_for_writing=False)
-    return data_frame
+# Given a list of input paths pointing to tabular data files, read each and return the DataFrame concatenation of all
+def read_hashes_from_files(input_path, logger, disable_full_hashing):
+    data_frame_list = []
+    for path in input_path:
+        # Pandas can read relative paths, but handle relative->absolute conversion here so extra info can print
+        path = sanitize_and_validate_file_path(path, logger)
+        # Use pandas to read a TSV file and parse it into a dataFrame
+        # https://pandas.pydata.org/docs/reference/api/pandas.read_csv.html
+        # Use tabs as separators
+        # Don't allow double-quotes inside fields without escaping
+        # Use a backslash \ character to escape separators or double quotes inside fields
+        # Don't read the first field in each row as the row index
+        data_frame = read_csv(path, sep="\t", doublequote=False, escapechar="\\", index_col=False)
+        update_data_frame_hash_column_name(data_frame, disable_full_hashing, logger, prepare_for_writing=False)
+        data_frame_list.append(data_frame)
+    # Now that all the input paths have been read in as DataFrames, concatenate them into one DataFrame and return
+    concat_data_frame = concat(data_frame_list)
+    return concat_data_frame
 
 
 def write_hashes_to_file(data_frame, output_path, logger, disable_full_hashing=False, hash_column_exists=True):

@@ -29,7 +29,7 @@ from psutil import Process
 # - WILL NOT WORK when imports are (partial?) absolute, i.e. `from util.xyz` (3)
 from difflens.util.comparefiles import determine_duplicate_files, determine_modified_files, determine_removed_files
 from difflens.util.computediffs import compute_diffs, flatten_dict_to_data_frame
-from difflens.util.hashfileio import write_hashes_to_file, read_hashes_from_file
+from difflens.util.hashfileio import write_hashes_to_file, read_hashes_from_files
 from difflens.util.log_helper import get_logger_with_name
 
 
@@ -43,9 +43,11 @@ def configure_argument_parser():
     # https://stackoverflow.com/questions/11154946/
     arg_group = parser.add_mutually_exclusive_group(required=True)
     arg_group.add_argument("--scan-directory", "-s", help="Path in which to look for files", type=str)
+    # action="append" allows this arg to return as a list when passed multiple times as input, or None
+    # https://stackoverflow.com/questions/36166225
     arg_group.add_argument("--input-hash-file", "-i",
                            help="Input file for new hash values if live directory scanning should be skipped",
-                           type=str)
+                           type=str, action="append")
     # Define arguments where a string is expected
     parser.add_argument("--comparison-hash-file", "-c", help="Path to delimited file containing old hash values",
                         type=str)
@@ -108,21 +110,28 @@ def main():
         # https://stackoverflow.com/questions/455612
         executor_logger.info("RAM used by Python process: {:.1f}MB".format(process.memory_info().rss / 1000 / 1000))
     else:
-        # Otherwise, the hash file was provided in place of a scan directory. Read it in as a data_frame
+        # Otherwise, the hash file(s) were provided in place of a scan directory. Read them in as a data_frame,
+        # merging with each other if there are multiple
         io_logger.info(
-            "Reading current_data_frame from file {} rather than directory scan".format(args.input_hash_file))
-        current_data_frame = read_hashes_from_file(args.input_hash_file, io_logger, args.disable_full_hashing)
+            "Reading current_data_frame from file(s) {} rather than directory scan".format(args.input_hash_file))
+        current_data_frame = read_hashes_from_files(args.input_hash_file, io_logger, args.disable_full_hashing)
+        duplicate_file_names = determine_duplicate_files(current_data_frame, "relative_path", ["relative_path"])
+        # https://stackoverflow.com/questions/19828822
+        if not duplicate_file_names.empty:
+            executor_logger.warning("Input Hash Files contained {} colliding relative paths! "
+                                    "Confirm the inputs contain expected data.".format(len(duplicate_file_names.index)))
 
     # The current_data_frame should now be loaded, either from scanning or reading in a file.
     # https://stackoverflow.com/questions/15943769
     current_data_frame_rows = len(current_data_frame.index)
     # Write current_data_frame to disk if an output path was provided.
     if args.output_hash_file is not None:
-        # If the input_hash_file arg was also provided, don't bother writing an output file since it would be identical
-        if args.input_hash_file is not None:
+        # If only one instance of input-hash-file was passed in, this would do nothing. Otherwise we're in concat mode
+        # and the output is unique content that should be saved
+        if args.input_hash_file is not None and len(args.input_hash_file) == 1:
             executor_logger.info(
                 "Desired output {} would be identical to {}, use that instead as no scan+compute took place".format(
-                    args.output_hash_file, args.input_hash_file))
+                    args.output_hash_file, args.input_hash_file[0]))
         else:
             if args.disable_all_hashing:
                 descriptor = "file list"
@@ -145,7 +154,8 @@ def main():
         else:
             duplicate_field = "hash"
         executor_logger.info("Finding duplicates in Current DataFrame based on {}".format(duplicate_field))
-        duplicates_data_frame = determine_duplicate_files(current_data_frame, duplicate_field)
+        duplicates_data_frame = determine_duplicate_files(current_data_frame, duplicate_field,
+                                                          [duplicate_field, "relative_path"])
         # https://stackoverflow.com/questions/45759966
         io_logger.info("Writing Duplicate DataFrame with {} rows across {} groups to disk at {}".format(
             len(duplicates_data_frame.index), duplicates_data_frame[duplicate_field].nunique(), args.output_duplicates))
@@ -155,7 +165,8 @@ def main():
     # If the path to a comparison_hash_file is provided by the CLI, read it in for comparison-based analysis
     if args.comparison_hash_file is not None:
         io_logger.info("Reading Comparison DataFrame from disk at {}".format(args.comparison_hash_file))
-        comparison_data_frame = read_hashes_from_file(args.comparison_hash_file, io_logger, args.disable_full_hashing)
+        comparison_data_frame = read_hashes_from_files([args.comparison_hash_file], io_logger,
+                                                       args.disable_full_hashing)
 
         # Both current_data_frame and comparison_data_frame are loaded into memory, begin analysis
 

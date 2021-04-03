@@ -89,7 +89,7 @@ def update_partial_dict(dict_to_update, absolute_path, relative_path, file_size_
     # NOTE: ALL processing occurs while the file is open, as the file stream can be passed to a helper for full hashing
     # https://stackabuse.com/file-handling-in-python/
     with open(absolute_path, "rb") as stream:
-        # Initialize the hasher that we'll use for partial hashing and CONTINUE using for full hashing
+        # Initialize the hasher used for partial hashing and CONTINUE using for full hashing
         blake3_hasher = blake3()
         # Update the hasher with the first N bytes of the file
         # NOTE: If a file is 100 bytes, f.read(100) will read the entire file.
@@ -131,10 +131,10 @@ def compute_diffs(input_path, logger, byte_count_to_hash, disable_all_hashing, d
                  "Disable full hashing, using just the first {:.2f} MB? {}.".format(disable_all_hashing,
                                                                                     byte_count_to_hash / 1000 / 1000,
                                                                                     disable_full_hashing))
-    # Input directory, which we'll modify to be an absolute path without a trailing slash (how Python wants it)
+    # Input directory that will be modified to be an absolute path without a trailing slash (how Python wants it)
     path_to_process = sanitize_and_validate_directory_path(input_path, logger)
 
-    # Create the top-level dict in which we'll store duplicates. Dict keys at this level are file sizes in bytes
+    # Create the top-level dict in which duplicates are stored. Dict keys at this level are file sizes in bytes
     file_duplicates_dict = {}
     # Initialize counters
     files_seen = last_files_seen = directories_seen = bytes_read = bytes_total = 0
@@ -160,13 +160,13 @@ def compute_diffs(input_path, logger, byte_count_to_hash, disable_all_hashing, d
 
             files_seen += 1
             # TODO add new input argument for an excludes file used to skip certain paths or extensions
-            # Construct the absolute path that we'll need to access the file
+            # Construct the absolute path used to access the file
             absolute_file_path = path.join(dir_path, file)
             # Skip symbolic link access to avoid accessing broken symlinks causing FileNotFoundError exceptions
             if path.islink(absolute_file_path):
                 logger.warn("Found a symbolic link at path {}, skipping".format(absolute_file_path))
                 continue
-            # Construct the relative path based on user input that we'll end up storing in the dict
+            # Construct the relative path based on user input that will be stored in the dict
             # https://stackoverflow.com/questions/1192978
             input_file_path = path.relpath(absolute_file_path)
             # Get the size of the file, in Bytes

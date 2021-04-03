@@ -187,16 +187,17 @@ def main():
                                                                                args.output_modified_files))
             write_hashes_to_file(modified_data_frame, args.output_modified_files, io_logger, hash_column_exists=False)
     else:
-        if args.output_removed_files is not None or args.output_added_files is not None or args.output_modified_files is not None:
+        if args.output_removed_files is not None \
+                or args.output_added_files is not None \
+                or args.output_modified_files is not None:
             executor_logger.warning(
                 "Skipping any Added, Removed, or Modified analysis as no comparison_hash_file was passed in")
     executor_logger.warning("Shutting down difflens")
     exit(0)
 
 
-# Used for running via package access, aka python difflens/entry.py
-# However, if the imports are absolute (from difflens.util.whatever)
-# it may break since it will see difflens as a module, not a package
-# However, when running inside PyCharm it doesn't seem to have this issue, and instead it works fine
+# Used for running via file mode, aka python difflens/entry.py, or module mode, aka python -m difflens.entry
+# NOTE that it may encounter an ImportError in file mode if the PYTHONPATH is not set correctly.
+# PyCharm seems to take care of this by updating the PYTHONPATH before executing a Run Configuration
 if __name__ == "__main__":
     main()

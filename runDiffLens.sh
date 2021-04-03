@@ -9,7 +9,7 @@ max_disk_num=3
 
 # Set the directory where difflens will write its output files. No trailing slash
 output_dir="/boot/logs"
-# Set the suffix of our output files
+# Set the suffix of the output files
 file_suffix=".tsv.gz"
 
 # Set the directory where screen will output logs. No trailing slash
@@ -40,13 +40,13 @@ fi
 echo "Installing project and dependencies using pip3"
 $pip3_path install $dependency_wheel_dir/difflens* --no-index --find-links file://$dependency_wheel_dir
 
-# Set the executable that pip3 creates for us when installing
+# Set the executable that pip3 creates when installing
 difflens_wrapper="/usr/bin/difflens"
 
 echo "Assembling input arguments and starting screens for each disk"
 # https://stackoverflow.com/questions/169511
 for disk_num in $(seq 1 $max_disk_num); do
-    # Construct the root of our output files. All outputs will share this prefix and path
+    # Construct the root of the output files' names. All outputs will share this prefix and path
     output_file_root="$output_dir/$run_date-disk$disk_num"
     # Construct the path where the full scan's hash list is stored
     output_hash_file="$output_file_root-hashes$file_suffix"

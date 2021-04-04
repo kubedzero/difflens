@@ -28,8 +28,10 @@ run_date=$(date '+%Y-%m-%dPT%H%M')
 screen_path="/usr/bin/screen"
 python3_path="/usr/bin/python3"
 pip3_path="/usr/bin/pip3"
-if [[ -z "$screen_path" || -z "$python3_path" || -z "$pip3_path" ]]; then
-    echo "One or more of $screen_path $python3_path $pip3_path did not exist and is required for operation. Exiting"
+notify_path="/usr/local/emhttp/webGui/scripts/notify"
+hostname_path="/bin/hostname"
+if [[ -z "$screen_path" || -z "$python3_path" || -z "$pip3_path" || -z "$notify_path" || -z "$hostname_path" ]]; then
+    echo "One or more of $screen_path $python3_path $pip3_path $notify_path $hostname_path did not exist and is required for operation. Exiting"
     exit 1
 fi
 
@@ -80,25 +82,35 @@ for disk_num in $(seq 1 $max_disk_num); do
     # Construct the list of input arguments
     # https://stackoverflow.com/questions/46807924/bash-split-long-string-argument-to-multiple-lines
     difflens_args="--scan-directory . \
-  --output-hash-file $output_hash_file \
-  --comparison-hash-file $previous_hash_file \
-  --output-removed-files $output_removed_files \
-  --output-added-files $output_added_files \
-  --output-modified-files $output_modified_files \
-  --output-duplicates $output_duplicates  \
-  --log-update-interval-seconds 60"
+      --output-hash-file $output_hash_file \
+      --comparison-hash-file $previous_hash_file \
+      --output-removed-files $output_removed_files \
+      --output-added-files $output_added_files \
+      --output-modified-files $output_modified_files \
+      --output-duplicates $output_duplicates  \
+      --log-update-interval-seconds 60"
 
-    # Construct the full command used to start up difflens. Screen will trigger bash which will use this string
+    # Construct the full command used to start up difflens.
     difflens_command="$difflens_wrapper $difflens_args"
-    # Construct the screen session name
+
+    # Construct the screen session name and log path
     screen_name="disk$disk_num-difflens"
+    screen_log_path="$log_output_dir/$run_date-$screen_name.log"
+
+    # Construct Unraid notification args to indicate hostname, disk number, and log path
+    # https://forums.unraid.net/topic/61996-cron-jobs-notify/
+    notify_args="-s 'Difflens Finished on $($hostname_path)-disk$disk_num' -d 'Logs located at $screen_log_path'"
+    notify_command="$notify_path $notify_args"
+
+    # Add command on the difflens initiation to send an Unraid notification when finished, regardless of exit code
+    daemon_command="$difflens_command; $notify_command"
 
     # Run the script in a detached screen session
     # -L required to enable logs. -Logfile to specify where. -S to name the session. -dm <cmd> to run <cmd> in screen
     # https://superuser.com/questions/454907/how-to-execute-a-command-in-screen-and-detach
     # https://fvdm.com/code/howto-write-screen-output-to-a-log-file
-    $screen_path -L -Logfile "$log_output_dir/$run_date-$screen_name.log" -S "$screen_name" -dm bash -c "$difflens_command"
-    echo -e "Monitor logs at $log_output_dir/$run_date-$screen_name.log for Screen with name $screen_name\n\n"
+    $screen_path -L -Logfile "$screen_log_path" -S "$screen_name" -dm bash -c "daemon_command"
+    echo -e "Monitor logs at $screen_log_path for Screen with name $screen_name\n\n"
 done
 
 echo "Screens started for $max_disk_num difflens executions. Use screen -r <name> to connect."

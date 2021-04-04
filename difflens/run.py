@@ -11,11 +11,11 @@ from psutil import Process
 # (1) ImportError: attempted relative import with no known parent package
 # (2) ModuleNotFoundError: No module named 'difflens'
 # (3) ModuleNotFoundError: No module named 'util'
-# NOTE: From CLI, running module-style `python3 -m difflens.entry` (or `python3 -m difflens` when __main__.py exists):
+# NOTE: From CLI, running module-style `python3 -m difflens.run` (or `python3 -m difflens` when __main__.py exists):
 # - WILL WORK when imports are relative, i.e. `from .util.xyz`
 # - WILL WORK when imports are absolute, i.e. `from difflens.util.xyz`
 # - WILL NOT WORK when imports are (partial?) absolute, i.e. `from util.xyz` (3)
-# NOTE: From CLI, running file-style `python3 difflens/entry.py`:
+# NOTE: From CLI, running file-style `python3 difflens/run.py`:
 # - WILL NOT WORK when imports are relative, i.e. `from .util.xyz` (1)
 # - WILL NOT WORK when imports are absolute, i.e. `from difflens.util.xyz` (2)
 # - WILL NOT WORK when imports are (partial?) absolute, i.e. `from util.xyz` (2)
@@ -207,7 +207,7 @@ def main():
     exit(0)
 
 
-# Used for running via file mode, aka python difflens/entry.py, or module mode, aka python -m difflens.entry
+# Used for running via file mode, aka python difflens/run.py, or module mode, aka python -m difflens.run
 # NOTE that it may encounter an ImportError in file mode if the PYTHONPATH is not set correctly.
 # PyCharm seems to take care of this by updating the PYTHONPATH before executing a Run Configuration
 if __name__ == "__main__":

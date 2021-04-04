@@ -104,19 +104,45 @@ macOS Big Sur 11.2.3 was the host operating system used to develop DiffLens
   - The Python Interpreter is the first thing to set up. PyCharm may offer to "create a pipenv from a Pipfile" banner when it discovers that no interpreter is set up for the project. If selected, it should grab the already-created Pipfile and configure the whole Pipenv with no further action.
   - To set up a Python Interpreter manually, open the Preferences and then go to Project > Python Interpreter > Gear > Show All and then click the plus button. Instead of a Virtualenv Environment, choose PipEnv Environment from the left side. Ensure the Base Interpreter is pulling from Pyenv's copy of Python3, namely `/Users/kz/.pyenv/shims/python3`, and that the Pipenv Executable is similarly pulling `/Users/kz/.pyenv/shims/pipenv`. It's fine to also check the "Install packages from Pipfile" as that saves a step of manually syncing the Pipenv. 
   - There should be no need to mark the `./difflens` or `./difflens/util` directories as source files, because they should be picked up by default as Namespace Packages due to the presence of `__init__.py` files in each. It won't hurt to do so, though
-  - The Terminal tab in PyCharm may automatically drop into the `pipenv shell` mode, which can be seen when running `which -a pip3` and getting a virtual environment first on the list, rather than the system-wide `/Users/kz/.pyenv/shims/pip3`. If it doesn't, `pipenv shell` can be run and a message similar to `Pipenv found itself running within a virtual environment, so it will automatically use that environment, instead of creating its own for any project` may be seen
+  - The Terminal tab in PyCharm may automatically drop into the `pipenv shell` mode, which can be seen when
+    running `which -a pip3` and getting a virtual environment first on the list, rather than the
+    system-wide `/Users/kz/.pyenv/shims/pip3`. If it doesn't, `pipenv shell` can be run and a message similar
+    to `Pipenv found itself running within a virtual environment, so it will automatically use that environment, instead of creating its own for any project`
+    may be seen
   - DiffLens can be executed in a variety of ways from PyCharm:
-    - One option is to make a Run Configuration. A shortcut is to find the green Play button in the gutter next to the line containing `if __name__ == "__main__":`, with the option to either run it directly or to edit the Run Configuration. If run directly without any modification, DiffLens should execute but note that input arguments weren't given. For this reason, going to edit the Run Configuration (either by that Play button or by the dropdown at the top right of PyCharm) is necessary. Once there, some important settings can be seen. For one, Script Path can be changed to Module name if it's desired to run DiffLens in Module mode (`python3 -m difflens.entry`), though aside from import behavior there should be little difference. The Parameters box (expandable on the right side) is the important bit, as that's where `--scan-directory ~/Downloads` or whatever else can be entered in. The Working directory is also vital, as that would simulate calling DiffLens from outside the project files. Since Difflens stores relative paths based on the working directory, this can be modified from the project directory to some other place (such as `~/Downloads`) to simulate running `difflens` from that directory.
-    - Another option is to use the Terminal tab at the bottom. After confirming with `which -a pip3 && pip3 list` that the Pipenv packages are installed and being used, run DiffLens in module mode with `python3 -m difflens` or `python3 -m difflens.entry` and then any of the input arguments desired. 
-    - Also possible from the Terminal is running DiffLens in file mode, such as with `python3 difflens/entry.py`. However, the current state if the project is probable to yield an ImportError, even though running the same file mode command in PyCharm does not error out. This could be due to PyCharm's Run Configurations setting the [PYTHONPATH](https://bic-berkeley.github.io/psych-214-fall-2016/using_pythonpath.html) environment variable to include the project's source code and Namespace directories, whereas running from the Terminal won't have this automatically set 
+    - One option is to make a Run Configuration. A shortcut is to find the green Play button in the gutter next to the
+      line containing `if __name__ == "__main__":`, with the option to either run it directly or to edit the Run
+      Configuration. If run directly without any modification, DiffLens should execute but note that input arguments
+      weren't given. For this reason, going to edit the Run Configuration (either by that Play button or by the dropdown
+      at the top right of PyCharm) is necessary. Once there, some important settings can be seen. For one, Script Path
+      can be changed to Module name if it's desired to run DiffLens in Module mode (`python3 -m difflens.run`), though
+      aside from import behavior there should be little difference. The Parameters box (expandable on the right side) is
+      the important bit, as that's where `--scan-directory ~/Downloads` or whatever else can be entered in. The Working
+      directory is also vital, as that would simulate calling DiffLens from outside the project files. Since Difflens
+      stores relative paths based on the working directory, this can be modified from the project directory to some
+      other place (such as `~/Downloads`) to simulate running `difflens` from that directory.
+    - Another option is to use the Terminal tab at the bottom. After confirming with `which -a pip3 && pip3 list` that
+      the Pipenv packages are installed and being used, run DiffLens in module mode with `python3 -m difflens`
+      or `python3 -m difflens.run` and then any of the input arguments desired.
+    - Also possible from the Terminal is running DiffLens in file mode, such as with `python3 difflens/run.py`. However,
+      the current state if the project is probable to yield an ImportError, even though running the same file mode
+      command in PyCharm does not error out. This could be due to PyCharm's Run Configurations setting
+      the [PYTHONPATH](https://bic-berkeley.github.io/psych-214-fall-2016/using_pythonpath.html) environment variable to
+      include the project's source code and Namespace directories, whereas running from the Terminal won't have this
+      automatically set
 - [Building]( https://packaging.python.org/tutorials/packaging-projects/)
   - Building DiffLens serves the purpose of taking all the source code and metadata and collecting it into a single `.whl` file or other install-ready format for distribution to other systems. From there, another system with `pip3` installed can simply run `pip3 install path/to/difflens.whl` to install not just DiffLens, but all its dependencies. 
   - `pip3 install build` is used to install the build tools necessary to run build commands. Note that `pip3 install` is used here instead of `pipenv install` which serves the purpose of installing the `build` package and its dependencies in the virtual env without adding them to the `Pipfile`
   - Then, `python3 -m build --wheel` can be run to collect the source code and actually create a folder `dist/`, and under it the wheel file: `difflens_kubedzero-0.1-py3-none-any.whl`
   - This `build --wheel` command takes the information contained in `setup.py` and `setup.cfg` to determine **how** to build the wheel. For example:
-    - `packages=setuptools.find_packages()` is a shortcut for `packages=["difflens"]` where Setuptools automatically runs through the repository's directory to find Python packages as indicated by a presence of `__init__.py`
-    - `entry_points={"console_scripts": ["difflens = difflens.entry:main"]}` tells the wheel file to contain special instructions to create a CLI wrapper in the PATH called `difflens` that automatically runs the `main` function inside the module `difflens.entry`
-    - `install_requires=["blake3~=0.1.8", "pandas~=1.2.3", "psutil~=5.8.0"]` tells Pip that, when installing, these other dependencies should also be installed if they aren't already. The `~=` indicates that compatible versions are OK and that they don't need to be exactly the same version.
+    - `packages=setuptools.find_packages()` is a shortcut for `packages=["difflens"]` where Setuptools automatically
+      runs through the repository's directory to find Python packages as indicated by a presence of `__init__.py`
+    - `entry_points={"console_scripts": ["difflens = difflens.run:main"]}` tells the wheel file to contain special
+      instructions to create a CLI wrapper in the PATH called `difflens` that automatically runs the `main` function
+      inside the module `difflens.run`
+    - `install_requires=["blake3~=0.1.8", "pandas~=1.2.3", "psutil~=5.8.0"]` tells Pip that, when installing, these
+      other dependencies should also be installed if they aren't already. The `~=` indicates that compatible versions
+      are OK and that they don't need to be exactly the same version.
 
 
 ### TODO
@@ -134,9 +160,14 @@ There is still plenty of room to grow. Among the many directions DiffLens could 
 - Possibly bundle the script or other support files into the build so they're installed to Unraid alongside the Python files. This would prevent users from separately downloading the Bash script, but runs into the chicken-and-egg problem of the script containing installation commands for what ends up being itself
 - Unit tests that validate argument parsing works as expected, or that helper functions perform in the desired manner
 - Continuous Integration and/or delivery via GitHub Actions to run unit tests and/or build wheel outputs upon commit
-- Determine if the setup should name the package `difflens` or `difflens-kubedzero` as the name influences how it shows up in Pip
-- Add another utility or flag to concatenate multiple hash files. This can be used to ensure uniqueness of files across all Unraid disks, as well as to find duplicates that may have been spread out across other disks. Finally, it could be used to eliminate false positives of deleted/added files if said files were moved from one disk to another while keeping the same relative path
-- Reorganize the helpers into Classes so they can be initialized with loggers, which would eliminate the need for loggers to be passed via argument
+- Determine if the setup should name the package `difflens` or `difflens-kubedzero` as the name influences how it shows
+  up in Pip
+- (Done via allowing multiple `--input-hash-file` args) Add another utility or flag to concatenate multiple hash files.
+  This can be used to ensure uniqueness of files across all Unraid disks, as well as to find duplicates that may have
+  been spread out across other disks. Finally, it could be used to eliminate false positives of deleted/added files if
+  said files were moved from one disk to another while keeping the same relative path
+- Reorganize the helpers into Classes so they can be initialized with loggers, which would eliminate the need for
+  loggers to be passed via argument
 - Add duplicate analysis between two files. This could work by joining on hash and then removing rows where the original and comparison have the same path, which would leave only files having the same hash but different relative paths. In lieu of a concatenation utility, this could assist with finding duplicates across disks. For a three-disk setup, checking 1-2, 2-3, and 1-3 would ensure all possible duplicates are found. 
 
 

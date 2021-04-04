@@ -44,11 +44,10 @@ def determine_duplicate_files(data_frame, duplicate_field, output_schema):
     # https://stackoverflow.com/questions/48628417
     # https://pandas.pydata.org/docs/reference/api/pandas.Series.value_counts.html
     data_frame_value_counts = data_frame[duplicate_field].value_counts()
-    # Filter to an Index of hashes that appeared more than once in the data_frame
-    multiple_occurrence_hashes = data_frame_value_counts.index[data_frame_value_counts.gt(1)]
+    # Filter to an Index of rows whose duplicate field appeared more than once in the data_frame
+    multiple_occurrence_rows = data_frame_value_counts.index[data_frame_value_counts.gt(1)]
     # Filter the data_frame to only include rows whose hash appeared in the multiple_occurrence_hashes Index
-    filtered_data_frame = data_frame[
-        data_frame[duplicate_field].isin(multiple_occurrence_hashes)]
+    filtered_data_frame = data_frame[data_frame[duplicate_field].isin(multiple_occurrence_rows)]
     # Reduce the data_frame to only the fields returned by this: hash and filename
     reduced_data_frame = filtered_data_frame[output_schema]
     return reduced_data_frame

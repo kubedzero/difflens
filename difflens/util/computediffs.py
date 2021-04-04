@@ -125,7 +125,7 @@ def update_partial_dict(dict_to_update, absolute_path, relative_path, file_size_
 # If disable_all_hashing is set to True, only the file size has to match to be considered a duplicate
 # If disable_full_hashing is set to True, only the partial hash has to match to be considered a duplicate
 def compute_diffs(input_path, logger, byte_count_to_hash, disable_all_hashing, disable_full_hashing,
-                  log_update_interval_seconds, log_update_interval_files):
+                  log_update_interval_seconds, log_update_interval_files, path_excluder):
     # Log the hashing state
     logger.debug("Disable all hashing, using just file size? {}. "
                  "Disable full hashing, using just the first {:.2f} MB? {}.".format(disable_all_hashing,
@@ -143,13 +143,26 @@ def compute_diffs(input_path, logger, byte_count_to_hash, disable_all_hashing, d
 
     # https://stackoverflow.com/questions/53123867
     # Process top-down. Adding topdown=False to the walk() arguments would read from the deepest structure upwards
-    # dir_path will update to the directory we're currently scanning. It is an absolute path
-    # dirs is a list of subdirectories in the current dir_path
-    # files is a list of file names in the current dir_path
-    for dir_path, dirs, files in walk(path_to_process):
-        directories_seen += 1
-        # Iterate through files that are immediate children in the current dir_path
+    # abs_dir_path will update to the directory we're currently scanning. It is an absolute path
+    # sub_dirs is a list of subdirectories in the current abs_dir_path
+    # files is a list of file names in the current abs_dir_path
+    for abs_dir_path, sub_dirs, files in walk(path_to_process):
+
+        # If excluded, clear out the current dir's subdirectory and file lists in place and continue the loop early
+        # NOTE: relative paths will never start with . unless . is the current directory
+        # NOTE: relative paths will never end with /
+        rel_dir_path = path.relpath(abs_dir_path)
+        if path_excluder.is_excluded_dir(rel_dir_path):
+            for subdir in sub_dirs:
+                sub_dirs.remove(subdir)
+            for file in files:
+                files.remove(file)
+            continue
+        # Iterate through filenames that are immediate children in the current abs_dir_path
         for file in files:
+            # If the current file's extension was excluded, continue the file loop early
+            if path_excluder.has_excluded_extension(file):
+                continue
             # Log an update if enough files have been seen since the last update, or if the time interval was reached
             current_time = time()
             if (current_time - last_logger_time) > log_update_interval_seconds or (
@@ -158,10 +171,8 @@ def compute_diffs(input_path, logger, byte_count_to_hash, disable_all_hashing, d
                 last_logger_time = current_time
                 last_files_seen = files_seen
 
-            files_seen += 1
-            # TODO add new input argument for an excludes file used to skip certain paths or extensions
             # Construct the absolute path used to access the file
-            absolute_file_path = path.join(dir_path, file)
+            absolute_file_path = path.join(abs_dir_path, file)
             # Skip symbolic link access to avoid accessing broken symlinks causing FileNotFoundError exceptions
             if path.islink(absolute_file_path):
                 logger.warn("Found a symbolic link at path {}, skipping".format(absolute_file_path))
@@ -196,7 +207,9 @@ def compute_diffs(input_path, logger, byte_count_to_hash, disable_all_hashing, d
                 # Otherwise finish processing this file by adding its bytes to the dict
                 file_duplicates_dict = add_or_update_dict_list(file_duplicates_dict, file_size_bytes,
                                                                input_file_path)
-        # We've exited the for loop for the current dir_path's files, onto the next dir_path
+            files_seen += 1
+        # We've exited the for loop for the current abs_dir_path's files, onto the next abs_dir_path
+        directories_seen += 1
 
     # Now that we're done traversing, print out summarized information
     log_current_progress(logger, start_time, time(), bytes_read, files_seen, directories_seen)

@@ -23,7 +23,7 @@ With this "replace File Integrity" mentality, a Bash script named `runDiffLens.s
 
 [Dynamix](https://github.com/bergware/dynamix) started off as a Bergware-developed GUI for Unraid, but eventually became part of the core distribution. Unraid now has built-in functionality to look for and install any file ending in `.cron` that exists in the directory `/boot/config/plugins/dynamix/`. Thus, a new file can be created `nano /boot/config/plugins/dynamix/runDiffLens.cron` with a Cron-format line inside, such as  `0 23 * * 0  /boot/runDiffLens.sh > /boot/logs/latest_difflens_run.log 2>&1` . This example would run at time 23:00 on each week/month on day 0 of the week, Sunday. At that time it will execute `/boot/runDiffLens.sh` and output the STDERR *and* STDOUT (thanks to `2>&1` and `>`) to a file `/boot/latest_difflens_run.log`. Note that this new Cron entry won't automatically be installed. Either `/usr/local/sbin/update_cron` will have to be run, which rescans the directory for `.cron` files, or Unraid can be rebooted. The Cron daemon reads from `/etc/cron.d/root`, so inspect that to see the registered/active Cron commands. 
 
-A common pattern within Unraid is to cache plugin and package files on the USB drive and then install from there, rather than fetching new  files from the Internet on each boot. This practice can be followed for DiffLens and Pip as well. By using `pip3 download package1 package2`, the files `package1.whl` and `package2.whl` will be downloaded and stored on disk. This can be used to download and store the dependencies of DiffLens in a folder on the USB `/boot/` disk. From there, when installing DiffLens, `pip3 install /boot/python_wheels/difflens* --no-index --find-links file:///boot/python_wheels` can install DiffLens and all its dependencies in an entirely offline manner. 
+A common pattern within Unraid is to cache plugin and package files on the USB drive and then install from there, rather than fetching new  files from the Internet on each boot. This practice can be followed for DiffLens and Pip as well. By using `pip3 download package1 package2`, the files `package1.whl` and `package2.whl` will be downloaded and stored on disk. This can be used to download and store the dependencies of DiffLens in a folder on the USB `/boot/` disk. From there, when installing DiffLens, `pip3 install /boot/python_wheels/difflens* --no-index --find-links file:///boot/python_wheels` can install DiffLens and all its dependencies in an entirely offline manner. If DiffLens was already installed, the `--force-reinstall` argument can be added to the previous command to force reinstallation of all packages
 
 ## Performance
 
@@ -151,8 +151,8 @@ There is still plenty of room to grow. Among the many directions DiffLens could 
 - Automated integration of Pipenv's Pipfile and Pipfile.lock dependencies into `setup.py()`'s `install_requires`
 - Migration of static `setup.py()` content to a `setup.cfg` as recommended by [PyPA](https://packaging.python.org/tutorials/packaging-projects/#configuring-metadata)
 - Revisiting whether the MIT license is appropriate, as the desire is for notification to be provided if this project were used as part of another, or part of a paid product
-- Adding Unraid UI/email notifications when a DiffLens execution completes
-- Parsing of an Exclude file, similar to `.gitignore` format, used to skip over certain directories or file extensions
+- (Done) Adding Unraid UI/email notifications when a DiffLens execution completes
+- (Done) Parsing of an Exclude file, similar to `.gitignore` format, used to skip over certain directories or file extensions
 - Splitting the modified file output into separate jobs for purely modified files, or files that also received updated modification dates
 - More analysis of file size, since any file processed should also have file size. This could be used to determine space lost due to duplicates, the size by which files grew/shrunk, sorting by file size, and more
 - Outputting the hashing date to the file with a granularity in seconds
@@ -215,3 +215,7 @@ There is still plenty of room to grow. Among the many directions DiffLens could 
 - https://stackoverflow.com/questions/3765234/listing-and-deleting-git-commits-that-are-under-no-branch-dangling getting rid of commits that are not in any branch
   - Useful when searching `git grep someSearch $(git rev-list --all) ` to try and find string occurrences that now only exist in no-longer-referenced commit IDs. NOTE that the command can be updated to `git grep someSearch $(git rev-list HEAD)` to only search in commits in the HEAD branch. 
   - `git stash clear && git reflog expire --expire-unreachable=now --all && git fsck --unreachable && git gc --prune=now` can clean things up
+- https://forums.unraid.net/topic/61996-cron-jobs-notify/ had information on sending notifications (email and browser) using Unraid's built in notification engine
+  - `/usr/local/emhttp/webGui/scripts/notify [-e "event"] [-s "subject"] [-d "description"] [-i "normal|warning|alert"] [-m "message"]` is all it takes. Everything is optional, but subject is recommended since that shows up in the email subject and the rest shows up in the email body. 
+- https://github.com/cpburnz/python-path-specification and https://github.com/mherrmann/gitignore_parser were alternative Python packages that could assist with parsing a `.gitignore` style file and then analyzing an input file compared against it
+- https://www.python.org/dev/peps/pep-0517/ describes the purpose of the `pyproject.toml` file

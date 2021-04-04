@@ -30,7 +30,8 @@ from psutil import Process
 from difflens.util.comparefiles import determine_duplicate_files, determine_modified_files, determine_removed_files
 from difflens.util.computediffs import compute_diffs, flatten_dict_to_data_frame
 from difflens.util.hashfileio import write_hashes_to_file, read_hashes_from_files
-from difflens.util.log_helper import get_logger_with_name
+from difflens.util.loghelper import get_logger_with_name
+from difflens.util.pathExcluder import PathExcluder
 
 
 # Set up the argparse object that defines and handles program input arguments
@@ -59,6 +60,10 @@ def configure_argument_parser():
                         type=str)
     parser.add_argument("--output-duplicates", "-d", help="Output file listing files that contain matching data",
                         type=str)
+    parser.add_argument("--exclude-file-extension", "-e",
+                        help="File extension such as '*.nfo' that should not be scanned", type=str, action="append")
+    parser.add_argument("--exclude-relative-path", "-y",
+                        help="Relative dir such as './foo/bar' that should not be scanned", type=str, action="append")
 
     # Define argument where a specific list of strings are allowed
     # https://stackoverflow.com/questions/15836713
@@ -97,11 +102,13 @@ def main():
         executor_logger.info(
             "Beginning directory scan and file hash computation of files in {}".format(args.scan_directory))
         byte_count_to_hash = 1000000
+        path_excluder = PathExcluder(args.exclude_file_extension, args.exclude_relative_path, args.log_level)
         current_dict = compute_diffs(args.scan_directory, io_logger, byte_count_to_hash=byte_count_to_hash,
                                      disable_all_hashing=args.disable_all_hashing,
                                      disable_full_hashing=args.disable_full_hashing,
                                      log_update_interval_seconds=args.log_update_interval_seconds,
-                                     log_update_interval_files=args.log_update_interval_files)
+                                     log_update_interval_files=args.log_update_interval_files,
+                                     path_excluder=path_excluder)
         executor_logger.info("Directory scan and file hash computation complete. Flattening output into DataFrame")
         current_data_frame = flatten_dict_to_data_frame(current_dict)
         # Print out stats on memory used

@@ -88,6 +88,9 @@ for disk_num in $(seq 1 $max_disk_num); do
       --output-added-files $output_added_files \
       --output-modified-files $output_modified_files \
       --output-duplicates $output_duplicates  \
+      --exclude-file-extension .DS_Store  \
+      --exclude-file-extension .nfo  \
+      --exclude-relative-path TMBackup \
       --log-update-interval-seconds 60"
 
     # Construct the full command used to start up difflens.

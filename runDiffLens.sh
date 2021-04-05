@@ -112,7 +112,7 @@ for disk_num in $(seq 1 $max_disk_num); do
     # -L required to enable logs. -Logfile to specify where. -S to name the session. -dm <cmd> to run <cmd> in screen
     # https://superuser.com/questions/454907/how-to-execute-a-command-in-screen-and-detach
     # https://fvdm.com/code/howto-write-screen-output-to-a-log-file
-    $screen_path -L -Logfile "$screen_log_path" -S "$screen_name" -dm bash -c "daemon_command"
+    $screen_path -L -Logfile "$screen_log_path" -S "$screen_name" -dm bash -c "$daemon_command"
     echo -e "Monitor logs at $screen_log_path for Screen with name $screen_name\n\n"
 done
 

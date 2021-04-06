@@ -149,7 +149,7 @@ macOS Big Sur 11.2.3 was the host operating system used to develop DiffLens
 
 There is still plenty of room to grow. Among the many directions DiffLens could travel, some TODOs and ideas are below:
 - Automated integration of Pipenv's Pipfile and Pipfile.lock dependencies into `setup.py()`'s `install_requires`
-- Migration of static `setup.py()` content to a `setup.cfg` as recommended by [PyPA](https://packaging.python.org/tutorials/packaging-projects/#configuring-metadata)
+- (Done) Migration of static `setup.py()` content to a `setup.cfg` as recommended by [PyPA](https://packaging.python.org/tutorials/packaging-projects/#configuring-metadata)
 - Revisiting whether the MIT license is appropriate, as the desire is for notification to be provided if this project were used as part of another, or part of a paid product
 - (Done) Adding Unraid UI/email notifications when a DiffLens execution completes
 - (Done) Parsing of an Exclude file, similar to `.gitignore` format, used to skip over certain directories or file extensions

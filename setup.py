@@ -1,28 +1,11 @@
 import setuptools
 
-with open("README.md", "r", encoding="utf-8") as fh:
-    long_description = fh.read()
 
 # https://setuptools.readthedocs.io/en/latest/userguide/declarative_config.html
 # From https://packaging.python.org/tutorials/packaging-projects/#configuring-metadata
 setuptools.setup(
-    name="difflens-kubedzero",
-    version="0.1",
-    long_description=long_description,
-    long_description_content_type="text/markdown",
     # https://packaging.python.org/guides/distributing-packages-using-setuptools/#packages
     packages=setuptools.find_packages(),
-    url="https://github.com/kubedzero/difflens",
-    license="MIT",
-    author="KZ",
-    author_email="kubedzero@gmail.com",
-    description="A package to compute, export, and analyze BLAKE3 file hashes and directory structures",
-    classifiers=[
-        "Programming Language :: Python :: 3",
-        "License :: OSI Approved :: MIT License",
-        "Environment :: Console",
-        "Operating System :: OS Independent"
-    ],
     # https://packaging.python.org/guides/distributing-packages-using-setuptools/#entry-points
     entry_points={"console_scripts": ["difflens = difflens.run:main"]},
     # https://packaging.python.org/guides/distributing-packages-using-setuptools/#install-requires

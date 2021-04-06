@@ -99,11 +99,11 @@ for disk_num in $(seq 1 $max_disk_num); do
     # Construct the screen session name and log path
     screen_name="disk$disk_num-difflens"
     screen_log_path="$log_output_dir/$run_date-$screen_name.log"
-
-    # Construct Unraid notification args to indicate hostname, disk number, and log path
+    # Send a notification indicating that DiffLens is starting, indicating hostname, disk number, and log path.
     # https://forums.unraid.net/topic/61996-cron-jobs-notify/
-    notify_args="-s 'Difflens Finished on $($hostname_path)-disk$disk_num' -d 'Logs located at $screen_log_path'"
-    notify_command="$notify_path $notify_args"
+    bash -c "$notify_path -s 'DiffLens started on $($hostname_path)-disk$disk_num' -d 'Logs located at $screen_log_path'"
+    # Prepare a similar notification for after the job completes
+    notify_command="$notify_path -s 'DiffLens finished on $($hostname_path)-disk$disk_num' -d 'Logs located at $screen_log_path'"
 
     # Add command on the difflens initiation to send an Unraid notification when finished, regardless of exit code
     daemon_command="$difflens_command; $notify_command"

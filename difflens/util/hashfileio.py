@@ -22,7 +22,7 @@ def update_data_frame_hash_column_name(data_frame, original_column_name, new_col
             data_frame.rename(columns={original_column_name: new_column_name}, inplace=True)
             return data_frame
         else:
-            # Otherwise inplace=False and a new object is returned from the rename that we can then return
+            # Otherwise, inplace=False and a new object is returned from the .rename() that we can then return
             return data_frame.rename(columns={original_column_name: new_column_name}, inplace=False)
     else:
         message = "Column '{}' did not exist in the input! Did you switch between partial and full hashing?".format(

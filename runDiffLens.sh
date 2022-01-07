@@ -96,6 +96,7 @@ for disk_num in $(seq 1 $max_disk_num); do
 
     # Construct the full command used to start up difflens.
     difflens_command="$difflens_wrapper $difflens_args"
+    echo -e "\nExecuting $difflens_command\n"
 
     # Construct the screen session name and log path
     screen_name="disk$disk_num-difflens"

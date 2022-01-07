@@ -105,7 +105,8 @@ def main():
     # If the scan directory was given and not the input hash file, try to scan
     if args.scan_directory is not None and args.input_hash_file is None:
         executor_logger.info(
-            "Beginning directory scan and file hash computation of files in {}".format(args.scan_directory))
+            "Beginning directory scan and file hash computation of files in {} using compare_mode {}".format(
+                args.scan_directory, compare_mode))
         byte_count_to_hash = 1000000
         path_excluder = PathExcluder(args.exclude_file_extension, args.exclude_relative_path, args.log_level)
         # TODO this isn't really computing diffs, so rename it to something else, maybe compute_hash or something
@@ -157,14 +158,17 @@ def main():
         # Handle when all hashing is disabled and a diff can only occur on file size
         if compare_mode == CompareMode.SIZE.value:
             duplicate_field = "file_size_bytes"
+            output_schema = [duplicate_field, "relative_path"]
         else:
             duplicate_field = "hash"
+            output_schema = [duplicate_field, "relative_path", "file_size_bytes"]
         executor_logger.info("Finding duplicates in Current DataFrame based on {}".format(duplicate_field))
-        duplicates_data_frame = determine_duplicate_files(current_data_frame, duplicate_field,
-                                                          [duplicate_field, "relative_path", "file_size_bytes"])
+        duplicates_data_frame = determine_duplicate_files(current_data_frame, duplicate_field, output_schema)
         # https://stackoverflow.com/questions/45759966
+        # https://www.geeksforgeeks.org/how-to-count-distinct-values-of-a-pandas-dataframe-column/
         io_logger.info("Writing Duplicate DataFrame with {} rows across {} groups to disk at {}".format(
-            len(duplicates_data_frame.index), duplicates_data_frame[duplicate_field].nunique(), args.output_duplicates))
+            len(duplicates_data_frame.index), len(duplicates_data_frame[duplicate_field].value_counts()),
+            args.output_duplicates))
         write_hashes_to_file(duplicates_data_frame, args.output_duplicates, io_logger, compare_mode)
 
     # If the path to a comparison_hash_file is provided by the CLI, read it in for comparison-based analysis
@@ -195,9 +199,8 @@ def main():
         if args.output_modified_files is not None:
             executor_logger.info("Finding files with different hashes than their Comparison DataFrame counterparts")
             modified_data_frame = determine_modified_files(comparison_data_frame, current_data_frame)
-            io_logger.info(
-                "Writing Modified DataFrame with {} rows to disk at {}".format(len(modified_data_frame.index),
-                                                                               args.output_modified_files))
+            io_logger.info("Writing Modified DataFrame with {} rows to disk at {}".format(
+                len(modified_data_frame.index), args.output_modified_files))
             write_hashes_to_file(modified_data_frame, args.output_modified_files, io_logger, compare_mode)
     else:
         if args.output_removed_files is not None \

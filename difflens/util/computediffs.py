@@ -21,7 +21,7 @@ def log_current_progress(logger, start_time, current_time, bytes_read, files_see
     bytes_read_mb = bytes_read / 1000 / 1000
     processed_mb_per_second = bytes_read_mb / run_time_seconds
 
-    # If processing has taken >5m, switch printout from seconds to minutes for decreased granularity
+    # If processing has taken >5m, decrease granularity by using minutes instead of seconds
     file_processing_time = run_time_seconds
     time_unit = "seconds"
     if file_processing_time > 300:
@@ -107,15 +107,15 @@ def update_partial_dict(dict_to_update, absolute_path, relative_path, file_size_
             # The full file was read if file_fully_hashed=True. No more hashing necessary, store in a list at this level
             dict_to_update = add_or_update_dict_list(dict_to_update, dict_key, relative_path)
         else:
-            # Proceed with hashing the full file if the caller did not indicate that full hashing should be skipped
-            if not compare_mode == CompareMode.FULL.value:
+            # Given the proper compare_mode, proceed with hashing the full file
+            if compare_mode == CompareMode.FULL.value:
                 if dict_key not in dict_to_update:
                     dict_to_update[dict_key] = update_full_hash_dict({}, relative_path, stream, blake3_hasher)
                 else:
                     dict_to_update[dict_key] = update_full_hash_dict(dict_to_update[dict_key], relative_path, stream,
                                                                      blake3_hasher)
             else:
-                # Otherwise finish processing this file by adding its partial hash and name to the dict
+                # Otherwise, finish processing this file by adding its partial hash and name to the dict
                 dict_to_update = add_or_update_dict_list(dict_to_update, hex_hash_string, relative_path)
         # Return the updated dict to the caller
         return dict_to_update
@@ -165,8 +165,8 @@ def compute_diffs(input_path, logger, byte_count_to_hash, compare_mode, log_upda
                 continue
             # Log an update if enough files have been seen since the last update, or if the time interval was reached
             current_time = time()
-            if (current_time - last_logger_time) > log_update_interval_seconds or (
-                    files_seen - last_files_seen) > log_update_interval_files:
+            if (current_time - last_logger_time) > log_update_interval_seconds or \
+                    (files_seen - last_files_seen) > log_update_interval_files:
                 log_current_progress(logger, start_time, current_time, bytes_read, files_seen, directories_seen)
                 last_logger_time = current_time
                 last_files_seen = files_seen
@@ -185,13 +185,13 @@ def compute_diffs(input_path, logger, byte_count_to_hash, compare_mode, log_upda
             file_size_bytes = path.getsize(absolute_file_path)
             bytes_total += file_size_bytes
             # Proceed with partial or full hashing if we are not in SIZE mode
-            if not compare_mode == CompareMode.PARTIAL.value:
-                if not compare_mode == CompareMode.FULL.value:
-                    bytes_read += file_size_bytes
-                else:
+            if not compare_mode == CompareMode.SIZE.value:
+                # Update the anticipated bytes_read count based on the accurate amount of bytes we will read
+                if compare_mode == CompareMode.PARTIAL.value:
                     bytes_read += min(file_size_bytes, byte_count_to_hash)
-
-                # Check if the fileBytesDict already contains an entry for the current file's size
+                else:
+                    bytes_read += file_size_bytes
+                # Check if the fileBytesDict already contains an entry for the byte number of the current file
                 if file_size_bytes not in file_duplicates_dict:
                     # If no entry existed, create a new dict as a value and populate it using a helper
                     file_duplicates_dict[file_size_bytes] = update_partial_dict({}, absolute_file_path, input_file_path,
@@ -204,7 +204,7 @@ def compute_diffs(input_path, logger, byte_count_to_hash, compare_mode, log_upda
                                                                                 file_size_bytes, byte_count_to_hash,
                                                                                 compare_mode)
             else:
-                # Otherwise finish processing this file by adding its bytes to the dict
+                # Otherwise, finish processing this file by adding just its size in bytes to the dict
                 file_duplicates_dict = add_or_update_dict_list(file_duplicates_dict, file_size_bytes,
                                                                input_file_path)
             files_seen += 1
@@ -216,7 +216,7 @@ def compute_diffs(input_path, logger, byte_count_to_hash, compare_mode, log_upda
     if compare_mode == CompareMode.SIZE.value or compare_mode == CompareMode.PARTIAL.value:
         bytes_saved_mb = (bytes_total - bytes_read) / 1000 / 1000
         logger.info(
-            "By partially/fully disabling hashing, "
+            "By using a partial file hash or file size instead of full file hash, "
             "difflens skipped reading {:.0f}MB from files on disk under {}".format(bytes_saved_mb, input_path))
     # Return the dict to the caller
     return file_duplicates_dict

@@ -13,5 +13,5 @@ setuptools.setup(
     # are also needed when installing this .whl from a package index
     # https://medium.com/expedia-group-tech/simplifying-python-builds-74e76802444f
     # https://stackoverflow.com/questions/49496994 potential alternate methods of auto-syncing from Pipfile
-    install_requires=["blake3~=0.1.8", "pandas~=1.2.3", "psutil~=5.8.0"]
+    install_requires=["blake3~=0.2.1", "pandas~=1.3.5", "psutil~=5.9.0"]
 )

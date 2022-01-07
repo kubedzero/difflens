@@ -150,26 +150,35 @@ macOS Big Sur 11.2.3 was the host operating system used to develop DiffLens
 There is still plenty of room to grow. Among the many directions DiffLens could travel, some TODOs and ideas are below:
 - Automated integration of Pipenv's Pipfile and Pipfile.lock dependencies into `setup.py()`'s `install_requires`
 - (Done) Migration of static `setup.py()` content to a `setup.cfg` as recommended by [PyPA](https://packaging.python.org/tutorials/packaging-projects/#configuring-metadata)
-- Revisiting whether the MIT license is appropriate, as the desire is for notification to be provided if this project were used as part of another, or part of a paid product
+- Revisiting whether the MIT license is appropriate, as the desire is for notification to be provided if this project
+  were used as part of another, or part of a paid product
 - (Done) Adding Unraid UI/email notifications when a DiffLens execution completes
-- (Done) Parsing of an Exclude file, similar to `.gitignore` format, used to skip over certain directories or file extensions
-- Splitting the modified file output into separate jobs for purely modified files, or files that also received updated modification dates
-- More analysis of file size, since any file processed should also have file size. This could be used to determine space lost due to duplicates, the size by which files grew/shrunk, sorting by file size, and more
+- (Done) Parsing of an Exclude file, similar to `.gitignore` format, used to skip over certain directories or file
+  extensions
+- Splitting the modified file output into separate jobs for purely modified files, or files that also received updated
+  modification dates
+- More analysis of file size, since any file processed should also have file size. This could be used to determine space
+  lost due to duplicates, the size by which files grew/shrunk, sorting by file size, and more
 - Outputting the hashing date to the file with a granularity in seconds
-- Optimizing the conditional behavior, as it's possible right now to do a scan but not act on it when no output or analysis flags are given
-- Possibly bundle the script or other support files into the build so they're installed to Unraid alongside the Python files. This would prevent users from separately downloading the Bash script, but runs into the chicken-and-egg problem of the script containing installation commands for what ends up being itself
+- Optimizing the conditional behavior, as it's possible right now to do a scan but not act on it when no output or
+  analysis flags are given
+- Possibly bundle the script or other support files into the build so they're installed to Unraid alongside the Python
+  files. This would prevent users from separately downloading the Bash script, but runs into the chicken-and-egg problem
+  of the script containing installation commands for what ends up being itself
 - Unit tests that validate argument parsing works as expected, or that helper functions perform in the desired manner
 - Continuous Integration and/or delivery via GitHub Actions to run unit tests and/or build wheel outputs upon commit
 - Determine if the setup should name the package `difflens` or `difflens-kubedzero` as the name influences how it shows
   up in Pip
-- (Done via allowing multiple `--input-hash-file` args) Add another utility or flag to concatenate multiple hash files.
+- (Done) via allowing multiple `--input-hash-file` args) Add another utility or flag to concatenate multiple hash files.
   This can be used to ensure uniqueness of files across all Unraid disks, as well as to find duplicates that may have
   been spread out across other disks. Finally, it could be used to eliminate false positives of deleted/added files if
   said files were moved from one disk to another while keeping the same relative path
 - Reorganize the helpers into Classes so they can be initialized with loggers, which would eliminate the need for
   loggers to be passed via argument
-- Add duplicate analysis between two files. This could work by joining on hash and then removing rows where the original and comparison have the same path, which would leave only files having the same hash but different relative paths. In lieu of a concatenation utility, this could assist with finding duplicates across disks. For a three-disk setup, checking 1-2, 2-3, and 1-3 would ensure all possible duplicates are found. 
-
+- Add duplicate analysis between two files. This could work by joining on hash and then removing rows where the original
+  and comparison have the same path, which would leave only files having the same hash but different relative paths. In
+  lieu of a concatenation utility, this could assist with finding duplicates across disks. For a three-disk setup,
+  checking 1-2, 2-3, and 1-3 would ensure all possible duplicates are found.
 
 ## Resources and References
 

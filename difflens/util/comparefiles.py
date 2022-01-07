@@ -33,7 +33,9 @@ def determine_modified_files(original_data_frame, comparison_data_frame):
     filtered_data_frame = analysis_data_frame[analysis_data_frame["hash_x"] != analysis_data_frame["hash_y"]]
     # Reduce the filtered data frame to only the fields returned by this: filename
     # https://www.analyseup.com/python-data-science-reference/pandas-selecting-dropping-and-renaming-columns.html
-    reduced_data_frame = filtered_data_frame["relative_path"]
+    # Single-column DataFrames are automatically converted to Series, so convert it back
+    # https://pandas.pydata.org/docs/reference/api/pandas.Series.to_frame.html
+    reduced_data_frame = filtered_data_frame["relative_path"].to_frame()
     return reduced_data_frame
 
 
@@ -48,6 +50,6 @@ def determine_duplicate_files(data_frame, duplicate_field, output_schema):
     multiple_occurrence_rows = data_frame_value_counts.index[data_frame_value_counts.gt(1)]
     # Filter the data_frame to only include rows whose hash appeared in the multiple_occurrence_hashes Index
     filtered_data_frame = data_frame[data_frame[duplicate_field].isin(multiple_occurrence_rows)]
-    # Reduce the data_frame to only the fields returned by this: hash and filename
+    # Reduce the data_frame to only the fields returned by this: hash, filename, and file size
     reduced_data_frame = filtered_data_frame[output_schema]
     return reduced_data_frame

@@ -7,6 +7,7 @@ from os import getcwd, getpid
 # Used to get memory information
 from psutil import Process
 
+from difflens.util.compareMode import CompareMode
 # Different import styles yield different errors in different environments:
 # (1) ImportError: attempted relative import with no known parent package
 # (2) ModuleNotFoundError: No module named 'difflens'
@@ -76,15 +77,16 @@ def configure_argument_parser():
     parser.add_argument("--log-update-interval-files", "-x", help="Target interval of files hashed between log updates",
                         type=int, default=10000)
 
-    # Define arguments where presence/absence indicates a Boolean. Interprets as true if passed in, false otherwise
-    parser.add_argument("--disable-all-hashing", "-p", help="Skip all hashing, comparing on file size alone",
-                        action="store_true")
-    parser.add_argument("--disable-full-hashing", "-f", help="Skip full hashing, comparing on only partial hashing",
-                        action="store_true")
+    # Define argument where a specific list of options are allowed
+    # https://stackoverflow.com/questions/15836713
+    parser.add_argument("--compare-mode", "-p", help="Set comparison mode to full file hash, partial file hash, or "
+                                                     "file size only",
+                        choices=[CompareMode.FULL.value, CompareMode.PARTIAL.value, CompareMode.SIZE.value],
+                        type=str, default=CompareMode.FULL.value)
+
     return parser
 
 
-# NOTE: PyCharm may think args is not used, but parser.parse_args() needs it here
 def main():
     # Set up the argparse object that defines and handles program input arguments
     parser = configure_argument_parser()
@@ -95,6 +97,9 @@ def main():
     executor_logger = get_logger_with_name("Executor", args.log_level)
     io_logger = get_logger_with_name("IO", args.log_level)
 
+    # Set the compare mode to the hash style we'll use: full-hash, partial-hash, or file-size
+    compare_mode = args.compare_mode
+
     executor_logger.warning("Starting difflens from current working directory {}".format(getcwd()))
 
     # If the scan directory was given and not the input hash file, try to scan
@@ -103,9 +108,9 @@ def main():
             "Beginning directory scan and file hash computation of files in {}".format(args.scan_directory))
         byte_count_to_hash = 1000000
         path_excluder = PathExcluder(args.exclude_file_extension, args.exclude_relative_path, args.log_level)
+        # TODO this isn't really computing diffs, so rename it to something else, maybe compute_hash or something
         current_dict = compute_diffs(args.scan_directory, io_logger, byte_count_to_hash=byte_count_to_hash,
-                                     disable_all_hashing=args.disable_all_hashing,
-                                     disable_full_hashing=args.disable_full_hashing,
+                                     compare_mode=compare_mode,
                                      log_update_interval_seconds=args.log_update_interval_seconds,
                                      log_update_interval_files=args.log_update_interval_files,
                                      path_excluder=path_excluder)
@@ -117,11 +122,11 @@ def main():
         # https://stackoverflow.com/questions/455612
         executor_logger.info("RAM used by Python process: {:.1f}MB".format(process.memory_info().rss / 1000 / 1000))
     else:
-        # Otherwise, the hash file(s) were provided in place of a scan directory. Read them in as a data_frame,
+        # Otherwise, the hash files were provided in place of a scan directory. Read them in as data_frames,
         # merging with each other if there are multiple
         io_logger.info(
             "Reading current_data_frame from file(s) {} rather than directory scan".format(args.input_hash_file))
-        current_data_frame = read_hashes_from_files(args.input_hash_file, io_logger, args.disable_full_hashing)
+        current_data_frame = read_hashes_from_files(args.input_hash_file, io_logger, compare_mode)
         duplicate_file_names = determine_duplicate_files(current_data_frame, "relative_path", ["relative_path"])
         # https://stackoverflow.com/questions/19828822
         if not duplicate_file_names.empty:
@@ -133,47 +138,39 @@ def main():
     current_data_frame_rows = len(current_data_frame.index)
     # Write current_data_frame to disk if an output path was provided.
     if args.output_hash_file is not None:
-        # If only one instance of input-hash-file was passed in, this would do nothing. Otherwise we're in concat mode
+        # If only one instance of input-hash-file was passed in, this would do nothing. Otherwise, we're in concat mode
         # and the output is unique content that should be saved
         if args.input_hash_file is not None and len(args.input_hash_file) == 1:
             executor_logger.info(
                 "Desired output {} would be identical to {}, use that instead as no scan+compute took place".format(
                     args.output_hash_file, args.input_hash_file[0]))
         else:
-            if args.disable_all_hashing:
-                descriptor = "file list"
-            elif args.disable_full_hashing:
-                descriptor = "partial file hashes"
-            else:
-                descriptor = "full file hashes"
             io_logger.info(
-                "Writing newly computed {} for {} files to disk at {}".format(descriptor, current_data_frame_rows,
+                "Writing newly computed {} for {} files to disk at {}".format(compare_mode, current_data_frame_rows,
                                                                               args.output_hash_file))
-            write_hashes_to_file(current_data_frame, args.output_hash_file, io_logger,
-                                 disable_full_hashing=args.disable_full_hashing)
+            write_hashes_to_file(current_data_frame, args.output_hash_file, io_logger, compare_mode)
 
     executor_logger.info("Beginning analysis of Current DataFrame with {} rows".format(current_data_frame_rows))
+
     # If CLI arg is set, perform the only analysis that can be done without a comparison file: finding duplicates
     if args.output_duplicates is not None:
         # Handle when all hashing is disabled and a diff can only occur on file size
-        if args.disable_all_hashing:
+        if compare_mode == CompareMode.SIZE.value:
             duplicate_field = "file_size_bytes"
         else:
             duplicate_field = "hash"
         executor_logger.info("Finding duplicates in Current DataFrame based on {}".format(duplicate_field))
         duplicates_data_frame = determine_duplicate_files(current_data_frame, duplicate_field,
-                                                          [duplicate_field, "relative_path"])
+                                                          [duplicate_field, "relative_path", "file_size_bytes"])
         # https://stackoverflow.com/questions/45759966
         io_logger.info("Writing Duplicate DataFrame with {} rows across {} groups to disk at {}".format(
             len(duplicates_data_frame.index), duplicates_data_frame[duplicate_field].nunique(), args.output_duplicates))
-        write_hashes_to_file(duplicates_data_frame, args.output_duplicates, io_logger,
-                             disable_full_hashing=args.disable_full_hashing)
+        write_hashes_to_file(duplicates_data_frame, args.output_duplicates, io_logger, compare_mode)
 
     # If the path to a comparison_hash_file is provided by the CLI, read it in for comparison-based analysis
     if args.comparison_hash_file is not None:
         io_logger.info("Reading Comparison DataFrame from disk at {}".format(args.comparison_hash_file))
-        comparison_data_frame = read_hashes_from_files([args.comparison_hash_file], io_logger,
-                                                       args.disable_full_hashing)
+        comparison_data_frame = read_hashes_from_files([args.comparison_hash_file], io_logger, compare_mode)
 
         # Both current_data_frame and comparison_data_frame are loaded into memory, begin analysis
 
@@ -184,8 +181,7 @@ def main():
             io_logger.info(
                 "Writing (Re)moved DataFrame with {} rows to disk at {}".format(len(removed_data_frame.index),
                                                                                 args.output_removed_files))
-            write_hashes_to_file(removed_data_frame, args.output_removed_files, io_logger,
-                                 disable_full_hashing=args.disable_full_hashing)
+            write_hashes_to_file(removed_data_frame, args.output_removed_files, io_logger, compare_mode)
 
         # If CLI arg is set, look for added files based on relative path
         if args.output_added_files is not None:
@@ -193,8 +189,7 @@ def main():
             added_data_frame = determine_removed_files(current_data_frame, comparison_data_frame)
             io_logger.info("Writing Added DataFrame with {} rows to disk at {}".format(len(added_data_frame.index),
                                                                                        args.output_added_files))
-            write_hashes_to_file(added_data_frame, args.output_added_files, io_logger,
-                                 disable_full_hashing=args.disable_full_hashing)
+            write_hashes_to_file(added_data_frame, args.output_added_files, io_logger, compare_mode)
 
         # If CLI arg is set, look for modified files based on relative path and hash
         if args.output_modified_files is not None:
@@ -203,7 +198,7 @@ def main():
             io_logger.info(
                 "Writing Modified DataFrame with {} rows to disk at {}".format(len(modified_data_frame.index),
                                                                                args.output_modified_files))
-            write_hashes_to_file(modified_data_frame, args.output_modified_files, io_logger, hash_column_exists=False)
+            write_hashes_to_file(modified_data_frame, args.output_modified_files, io_logger, compare_mode)
     else:
         if args.output_removed_files is not None \
                 or args.output_added_files is not None \

@@ -10,6 +10,7 @@ from blake3 import blake3
 from pandas import DataFrame
 
 from .commonutils import sanitize_and_validate_directory_path
+from .compareMode import CompareMode
 
 
 # Helper to log the progress made during hashing
@@ -84,7 +85,7 @@ def update_full_hash_dict(dict_to_update, relative_path, stream, blake3_hasher):
 # 2. a list of relative paths of the files sharing the same partial hash that ALSO is under the hash threshold
 # NOTE: The split value structure is in hopes of reducing dict memory footprint
 def update_partial_dict(dict_to_update, absolute_path, relative_path, file_size_bytes, byte_count_to_hash,
-                        disable_full_hashing):
+                        compare_mode):
     # Open the file in read-only, binary format
     # NOTE: ALL processing occurs while the file is open, as the file stream can be passed to a helper for full hashing
     # https://stackabuse.com/file-handling-in-python/
@@ -107,7 +108,7 @@ def update_partial_dict(dict_to_update, absolute_path, relative_path, file_size_
             dict_to_update = add_or_update_dict_list(dict_to_update, dict_key, relative_path)
         else:
             # Proceed with hashing the full file if the caller did not indicate that full hashing should be skipped
-            if not disable_full_hashing:
+            if not compare_mode == CompareMode.FULL.value:
                 if dict_key not in dict_to_update:
                     dict_to_update[dict_key] = update_full_hash_dict({}, relative_path, stream, blake3_hasher)
                 else:
@@ -122,15 +123,14 @@ def update_partial_dict(dict_to_update, absolute_path, relative_path, file_size_
 
 # Entry point for hashing computation. Given a relative or absolute input path, find files it contains and determine
 # their size, partial and/or full hash, saving those values to a dict. Finally, return that dict
-# If disable_all_hashing is set to True, only the file size has to match to be considered a duplicate
-# If disable_full_hashing is set to True, only the partial hash has to match to be considered a duplicate
-def compute_diffs(input_path, logger, byte_count_to_hash, disable_all_hashing, disable_full_hashing,
-                  log_update_interval_seconds, log_update_interval_files, path_excluder):
+# If compare_mode is set to SIZE, only the file size has to match to be considered a duplicate
+# If compare_mode is set to PARTIAL, only the partial hash has to match to be considered a duplicate
+def compute_diffs(input_path, logger, byte_count_to_hash, compare_mode, log_update_interval_seconds,
+                  log_update_interval_files, path_excluder):
     # Log the hashing state
-    logger.debug("Disable all hashing, using just file size? {}. "
-                 "Disable full hashing, using just the first {:.2f} MB? {}.".format(disable_all_hashing,
-                                                                                    byte_count_to_hash / 1000 / 1000,
-                                                                                    disable_full_hashing))
+    logger.debug("Comparing files using mode {}. "
+                 "If partial hashing, using just the first {:.2f} MB".format(compare_mode,
+                                                                             byte_count_to_hash / 1000 / 1000))
     # Input directory that will be modified to be an absolute path without a trailing slash (how Python wants it)
     path_to_process = sanitize_and_validate_directory_path(input_path, logger)
 
@@ -184,9 +184,9 @@ def compute_diffs(input_path, logger, byte_count_to_hash, disable_all_hashing, d
             # https://stackoverflow.com/questions/6591931
             file_size_bytes = path.getsize(absolute_file_path)
             bytes_total += file_size_bytes
-            # Proceed with partial or full hashing if disable_all_hashing=False
-            if not disable_all_hashing:
-                if not disable_full_hashing:
+            # Proceed with partial or full hashing if we are not in SIZE mode
+            if not compare_mode == CompareMode.PARTIAL.value:
+                if not compare_mode == CompareMode.FULL.value:
                     bytes_read += file_size_bytes
                 else:
                     bytes_read += min(file_size_bytes, byte_count_to_hash)
@@ -196,13 +196,13 @@ def compute_diffs(input_path, logger, byte_count_to_hash, disable_all_hashing, d
                     # If no entry existed, create a new dict as a value and populate it using a helper
                     file_duplicates_dict[file_size_bytes] = update_partial_dict({}, absolute_file_path, input_file_path,
                                                                                 file_size_bytes, byte_count_to_hash,
-                                                                                disable_full_hashing)
+                                                                                compare_mode)
                 else:
                     # An entry already existed as the value, so pass it to the helper to update
                     file_duplicates_dict[file_size_bytes] = update_partial_dict(file_duplicates_dict[file_size_bytes],
                                                                                 absolute_file_path, input_file_path,
                                                                                 file_size_bytes, byte_count_to_hash,
-                                                                                disable_full_hashing)
+                                                                                compare_mode)
             else:
                 # Otherwise finish processing this file by adding its bytes to the dict
                 file_duplicates_dict = add_or_update_dict_list(file_duplicates_dict, file_size_bytes,
@@ -213,7 +213,7 @@ def compute_diffs(input_path, logger, byte_count_to_hash, disable_all_hashing, d
 
     # Now that we're done traversing, print out summarized information
     log_current_progress(logger, start_time, time(), bytes_read, files_seen, directories_seen)
-    if disable_all_hashing or disable_full_hashing:
+    if compare_mode == CompareMode.SIZE.value or compare_mode == CompareMode.PARTIAL.value:
         bytes_saved_mb = (bytes_total - bytes_read) / 1000 / 1000
         logger.info(
             "By partially/fully disabling hashing, "
@@ -243,7 +243,7 @@ def flatten_dict_to_data_frame(file_duplicates_dict):
                 else:
                     # If the value wasn't a dict, then it's a list of files.
                     # This occurs when the partial hash was actually a full hash due to the file being small
-                    # or when hashing was stopped early due to disable_full_hash=True
+                    # or when hashing was stopped early due to the compare mode being partial-hash
                     for list_item in level_one_value:
                         # Handle cases where key is a Tuple of the hash and file_fully_read indicator OR a hash string
                         if isinstance(level_one_key, tuple):

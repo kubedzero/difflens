@@ -173,41 +173,50 @@ def compute_diffs(input_path, logger, byte_count_to_hash, compare_mode, log_upda
 
             # Construct the absolute path used to access the file
             absolute_file_path = path.join(abs_dir_path, file)
-            # Skip symbolic link access to avoid accessing broken symlinks causing FileNotFoundError exceptions
-            if path.islink(absolute_file_path):
-                logger.warn("Found a symbolic link at path {}, skipping".format(absolute_file_path))
-                continue
-            # Construct the relative path based on user input that will be stored in the dict
-            # https://stackoverflow.com/questions/1192978
-            input_file_path = path.relpath(absolute_file_path)
-            # Get the size of the file, in Bytes
-            # https://stackoverflow.com/questions/6591931
-            file_size_bytes = path.getsize(absolute_file_path)
-            bytes_total += file_size_bytes
-            # Proceed with partial or full hashing if we are not in SIZE mode
-            if not compare_mode == CompareMode.SIZE.value:
-                # Update the anticipated bytes_read count based on the accurate amount of bytes we will read
-                if compare_mode == CompareMode.PARTIAL.value:
-                    bytes_read += min(file_size_bytes, byte_count_to_hash)
+
+            # Wrap the rest of the for loop in a try/catch to handle FileNotFoundError. This is if the file disappears
+            # partway through the scan of the directory.
+            try:
+                # Skip symbolic link access to avoid accessing broken symlinks causing FileNotFoundError exceptions
+                if path.islink(absolute_file_path):
+                    logger.warn("Found a symbolic link at path {}, skipping".format(absolute_file_path))
+                    continue
+                # Construct the relative path based on user input that will be stored in the dict
+                # https://stackoverflow.com/questions/1192978
+                input_file_path = path.relpath(absolute_file_path)
+                # Get the size of the file, in Bytes
+                # https://stackoverflow.com/questions/6591931
+                file_size_bytes = path.getsize(absolute_file_path)
+                bytes_total += file_size_bytes
+                # Proceed with partial or full hashing if we are not in SIZE mode
+                if not compare_mode == CompareMode.SIZE.value:
+                    # Update the anticipated bytes_read count based on the accurate amount of bytes we will read
+                    if compare_mode == CompareMode.PARTIAL.value:
+                        bytes_read += min(file_size_bytes, byte_count_to_hash)
+                    else:
+                        bytes_read += file_size_bytes
+                    # Check if the fileBytesDict already contains an entry for the byte number of the current file
+                    if file_size_bytes not in file_duplicates_dict:
+                        # If no entry existed, create a new dict as a value and populate it using a helper
+                        file_duplicates_dict[file_size_bytes] = update_partial_dict({}, absolute_file_path,
+                                                                                    input_file_path,
+                                                                                    file_size_bytes, byte_count_to_hash,
+                                                                                    compare_mode)
+                    else:
+                        # An entry already existed as the value, so pass it to the helper to update
+                        file_duplicates_dict[file_size_bytes] = update_partial_dict(
+                            file_duplicates_dict[file_size_bytes],
+                            absolute_file_path, input_file_path,
+                            file_size_bytes, byte_count_to_hash,
+                            compare_mode)
                 else:
-                    bytes_read += file_size_bytes
-                # Check if the fileBytesDict already contains an entry for the byte number of the current file
-                if file_size_bytes not in file_duplicates_dict:
-                    # If no entry existed, create a new dict as a value and populate it using a helper
-                    file_duplicates_dict[file_size_bytes] = update_partial_dict({}, absolute_file_path, input_file_path,
-                                                                                file_size_bytes, byte_count_to_hash,
-                                                                                compare_mode)
-                else:
-                    # An entry already existed as the value, so pass it to the helper to update
-                    file_duplicates_dict[file_size_bytes] = update_partial_dict(file_duplicates_dict[file_size_bytes],
-                                                                                absolute_file_path, input_file_path,
-                                                                                file_size_bytes, byte_count_to_hash,
-                                                                                compare_mode)
-            else:
-                # Otherwise, finish processing this file by adding just its size in bytes to the dict
-                file_duplicates_dict = add_or_update_dict_list(file_duplicates_dict, file_size_bytes,
-                                                               input_file_path)
-            files_seen += 1
+                    # Otherwise, finish processing this file by adding just its size in bytes to the dict
+                    file_duplicates_dict = add_or_update_dict_list(file_duplicates_dict, file_size_bytes,
+                                                                   input_file_path)
+                files_seen += 1
+            except FileNotFoundError:
+                logger.error("File {} was in list but was not found. "
+                             "Perhaps it got deleted during scan? Skipping file.".format(absolute_file_path))
         # We've exited the for loop for the current abs_dir_path's files, onto the next abs_dir_path
         directories_seen += 1
 

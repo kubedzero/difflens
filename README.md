@@ -134,6 +134,10 @@ macOS Big Sur 11.2.3 was the host operating system used to develop DiffLens
   - Building DiffLens serves the purpose of taking all the source code and metadata and collecting it into a single `.whl` file or other install-ready format for distribution to other systems. From there, another system with `pip3` installed can simply run `pip3 install path/to/difflens.whl` to install not just DiffLens, but all its dependencies. 
   - `pip3 install build` is used to install the build tools necessary to run build commands. Note that `pip3 install` is used here instead of `pipenv install` which serves the purpose of installing the `build` package and its dependencies in the virtual env without adding them to the `Pipfile`
   - Then, `python3 -m build --wheel` can be run to collect the source code and actually create a folder `dist/`, and under it the wheel file: `difflens_kubedzero-0.1-py3-none-any.whl`
+    - If there is an error such
+      as `No module named build.__main__; 'build' is a package and cannot be directly executed` it might be
+      because `build` was not installed in the virtualenv. This could happen because it's not a project dependency, and
+      is only needed for building.
   - This `build --wheel` command takes the information contained in `setup.py` and `setup.cfg` to determine **how** to build the wheel. For example:
     - `packages=setuptools.find_packages()` is a shortcut for `packages=["difflens"]` where Setuptools automatically
       runs through the repository's directory to find Python packages as indicated by a presence of `__init__.py`

@@ -1,6 +1,24 @@
+[project]
+name = "difflens"
+version = "0.2.0"
+description = "A package to compute, export, and analyze BLAKE3 file hashes and directory structures"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "blake3>=1.0.5",
+    "pandas>=2.3.1",
+    "psutil>=7.0.0",
+]
+
+[project.urls]
+Repository = "https://github.com/kubedzero/difflens"
+
+[project.scripts]
+difflens = "difflens.run:main"
+
 [build-system]
 requires = [
-    "setuptools>=42",
+    "setuptools>=80",
     "wheel"
 ]
 build-backend = "setuptools.build_meta"
